@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Yhteisikkuna — Microsoft-kalenteritesti</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 640px; margin: 40px auto; padding: 0 20px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.sub { color: #586174; font-size: 14px; margin-top: 0; }
+  button { background: #2A4B7C; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+  button:hover { background: #1D3559; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  #status { margin: 16px 0; font-size: 13px; color: #586174; }
+  #status.error { color: #C0453A; }
+  .card { background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; }
+  .card .status-busy { color: #C0453A; font-weight: 600; }
+  .card .status-free { color: #2F8C5E; font-weight: 600; }
+  code { background: #E7EDF5; padding: 2px 6px; border-radius: 4px; font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<h1>Microsoft-kalenteritesti</h1>
+<p class="sub">Kirjaudu omalla Microsoft-tunnuksellasi ja hae oikeat vapaa/varattu-tiedot Graph-rajapinnasta.</p>
+
+<button id="loginBtn">Kirjaudu Microsoft-tilillä</button>
+<div id="status"></div>
+<div id="results"></div>
+
+<!-- MSAL.js kirjasto suoraan Microsoftin omalta CDN:ltä, ei vaadi asennuksia -->
+<script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
+
+<script>
+  // ---------------------------------------------------------------
+  // 1) TÄHÄN OMA CLIENT ID Azure-sovellusrekisteröinnistä
+  //    (Entra ID -> App registrations -> [sovelluksesi] -> Overview -> Application (client) ID)
+  // ---------------------------------------------------------------
+  const CLIENT_ID = "TÄHÄN_OMA_APPLICATION_CLIENT_ID";
+
+  const msalConfig = {
+    auth: {
+      clientId: CLIENT_ID,
+      // "common" = sekä personal-tilit (Outlook.com) että työ/koulu-tunnukset mistä tahansa
+      // organisaatiosta. Tätä tarvitset juuri nyt testausvaiheessa personal-tilillä.
+      authority: "https://login.microsoftonline.com/common",
+      // Tämän pitää olla TÄSMÄLLEEN sama osoite kuin Azuressa rekisteröity
+      // SPA-tyyppinen redirect URI (kauttaviiva lopussa mukaan lukien).
+      redirectUri: window.location.origin + "/",
+    },
+  };
+
+  const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+  // Pyydämme aluksi kapeamman ReadBasic-oikeuden. Jos Graph API hylkää sen,
+  // fetchFreeBusy pyytää automaattisesti laajemman Calendars.Read-oikeuden.
+  const loginRequest = { scopes: ["Calendars.ReadBasic"] };
+
+  const statusEl = document.getElementById("status");
+  const resultsEl = document.getElementById("results");
+  const loginBtn = document.getElementById("loginBtn");
+
+  function setStatus(text, isError) {
+    statusEl.textContent = text;
+    statusEl.className = isError ? "error" : "";
+  }
+
+  loginBtn.addEventListener("click", async () => {
+    loginBtn.disabled = true;
+    setStatus("Avataan Microsoftin kirjautumisikkuna…");
+    try {
+      const loginResponse = await msalInstance.loginPopup(loginRequest);
+      setStatus("Kirjauduttu sisään: " + loginResponse.account.username);
+      await fetchFreeBusy(loginResponse.accessToken, loginResponse.account.username, loginRequest.scopes);
+    } catch (err) {
+      console.error(err);
+      setStatus("Kirjautuminen epäonnistui: " + (err.errorMessage || err.message), true);
+    } finally {
+      loginBtn.disabled = false;
+    }
+  });
+
+  async function fetchFreeBusy(accessToken, email, scopesUsed) {
+    setStatus("Haetaan vapaa/varattu-tietoja Graph-rajapinnasta…");
+
+    const start = new Date();
+    start.setHours(8, 0, 0, 0);
+    const end = new Date();
+    end.setHours(17, 0, 0, 0);
+
+    try {
+      const res = await fetch("https://graph.microsoft.com/v1.0/me/calendar/getSchedule", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + accessToken,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          schedules: [email],
+          startTime: { dateTime: start.toISOString(), timeZone: "UTC" },
+          endTime: { dateTime: end.toISOString(), timeZone: "UTC" },
+          availabilityViewInterval: 30,
+        }),
+      });
+
+      if (!res.ok) {
+        // Tunnettu, dokumentoitu ongelma: ReadBasic ei aina riitä getSchedule-kutsuun,
+        // vaikka Microsoftin oma dokumentaatio niin väittää. Yritetään automaattisesti
+        // laajemmalla Calendars.Read-oikeudella ennen kuin näytetään virhe käyttäjälle.
+        if (res.status === 403 && scopesUsed.includes("Calendars.ReadBasic")) {
+          setStatus("ReadBasic-oikeus ei riittänyt — pyydetään laajempi Calendars.Read-oikeus…");
+          const upgraded = await msalInstance.acquireTokenPopup({ scopes: ["Calendars.Read"] });
+          return fetchFreeBusy(upgraded.accessToken, email, ["Calendars.Read"]);
+        }
+        const errBody = await res.text();
+        throw new Error("Graph API vastasi virheellä (" + res.status + "): " + errBody);
+      }
+
+      const data = await res.json();
+      renderResults(data);
+      setStatus("Valmis — tiedot haettu suoraan omasta kalenteristasi tälle päivälle klo 8–17. (Käytetty oikeus: " + scopesUsed.join(", ") + ")");
+    } catch (err) {
+      console.error(err);
+      setStatus("Kalenterin haku epäonnistui: " + err.message, true);
+    }
+  }
+
+  function renderResults(data) {
+    resultsEl.innerHTML = "";
+    const schedule = data.value && data.value[0];
+    if (!schedule || !schedule.scheduleItems || schedule.scheduleItems.length === 0) {
+      resultsEl.innerHTML = '<div class="card">Ei varauksia tälle päivälle klo 8–17 — koko päivä vapaana.</div>';
+      return;
+    }
+    schedule.scheduleItems.forEach((item) => {
+      const div = document.createElement("div");
+      div.className = "card";
+      const startTime = new Date(item.start.dateTime + "Z").toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit" });
+      const endTime = new Date(item.end.dateTime + "Z").toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit" });
+      div.innerHTML =
+        '<span class="status-busy">' + item.status + "</span> &middot; " + startTime + "–" + endTime;
+      resultsEl.appendChild(div);
+    });
+  }
+</script>
+
+</body>
+</html>
