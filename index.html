@@ -54,7 +54,7 @@
 
   // Pyydämme aluksi kapeamman ReadBasic-oikeuden. Jos Graph API hylkää sen,
   // fetchFreeBusy pyytää automaattisesti laajemman Calendars.Read-oikeuden.
-  const loginRequest = { scopes: ["Calendars.ReadBasic"] };
+  const loginRequest = { scopes: ["Calendars.Read"] };
 
   const statusEl = document.getElementById("status");
   const resultsEl = document.getElementById("results");
