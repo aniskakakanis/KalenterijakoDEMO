@@ -107,7 +107,7 @@
         // Tunnettu, dokumentoitu ongelma: ReadBasic ei aina riitä getSchedule-kutsuun,
         // vaikka Microsoftin oma dokumentaatio niin väittää. Yritetään automaattisesti
         // laajemmalla Calendars.Read-oikeudella ennen kuin näytetään virhe käyttäjälle.
-        if (res.status === 403 && scopesUsed.includes("Calendars.ReadBasic")) {
+        if ((res.status === 401 || res.status === 403) && scopesUsed.includes("Calendars.ReadBasic")) {
           setStatus("ReadBasic-oikeus ei riittänyt — pyydetään laajempi Calendars.Read-oikeus…");
           const upgraded = await msalInstance.acquireTokenPopup({ scopes: ["Calendars.Read"] });
           return fetchFreeBusy(upgraded.accessToken, email, ["Calendars.Read"]);
