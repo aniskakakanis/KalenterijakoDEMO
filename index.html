@@ -28,21 +28,33 @@
 <div id="status"></div>
 <div id="results"></div>
 
+<!-- ================================================================
+     VÄLIAIKAINEN DEBUG-LOHKO — poista tämä ennen kuin viet sivun
+     kenenkään muun nähtäväksi tai tuotantoon. Näyttää Graphin täysin
+     raa'an, suodattamattoman vastauksen (mm. subject/location/isPrivate),
+     jotta voit testata esim. private-merkinnän vaikutusta.
+     ================================================================ -->
+<details style="margin-top: 32px; border-top: 1px solid #DBDFE5; padding-top: 16px;">
+  <summary style="cursor: pointer; font-size: 13px; color: #586174;">🔧 Debug: raaka Graph-vastaus (suodattamaton)</summary>
+  <pre id="debugRaw" style="white-space: pre-wrap; word-break: break-word; font-size: 12px; background: #161B22; color: #c9d1d9; padding: 12px; border-radius: 8px; margin-top: 8px; max-height: 400px; overflow: auto;"></pre>
+</details>
+
 <!-- MSAL.js kirjasto suoraan Microsoftin omalta CDN:ltä, ei vaadi asennuksia -->
 <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
 
 <script>
   // ---------------------------------------------------------------
-  // 1) TÄHÄN OMA CLIENT ID Azure-sovellusrekisteröinnistä
-  //    (Entra ID -> App registrations -> [sovelluksesi] -> Overview -> Application (client) ID)
+  // TÄHÄN OMA CLIENT ID Azure-sovellusrekisteröinnistä
+  // (Entra ID -> App registrations -> [sovelluksesi] -> Overview -> Application (client) ID)
+  // Käytä samaa arvoa jota olet jo käyttänyt aiemmassa toimivassa versiossa.
   // ---------------------------------------------------------------
   const CLIENT_ID = "54f922c6-aa24-44b4-9305-f28964c09f96";
 
   const msalConfig = {
     auth: {
       clientId: CLIENT_ID,
-      // "common" = sekä personal-tilit (Outlook.com) että työ/koulu-tunnukset mistä tahansa
-      // organisaatiosta. Tätä tarvitset juuri nyt testausvaiheessa personal-tilillä.
+      // "common" = sekä personal-tilit (Outlook.com) että työ/koulu-tunnukset
+      // mistä tahansa organisaatiosta.
       authority: "https://login.microsoftonline.com/common",
       // Tämän pitää olla TÄSMÄLLEEN sama osoite kuin Azuressa rekisteröity
       // SPA-tyyppinen redirect URI (kauttaviiva lopussa mukaan lukien).
@@ -52,8 +64,11 @@
 
   const msalInstance = new msal.PublicClientApplication(msalConfig);
 
-  // Pyydämme aluksi kapeamman ReadBasic-oikeuden. Jos Graph API hylkää sen,
-  // fetchFreeBusy pyytää automaattisesti laajemman Calendars.Read-oikeuden.
+  // Pyydetään Calendars.Read suoraan alusta asti. Calendars.ReadBasic olisi
+  // kapeampi oikeus, mutta osoittautui epäluotettavaksi getSchedule-kutsun
+  // kanssa (dokumentoitu epäjohdonmukaisuus), ja korotuslogiikka aiheutti
+  // selaimen popup-eston koska toinen popup avautuisi vasta verkkokutsun
+  // jälkeen. Suora, yksinkertainen pyyntö on siksi luotettavampi valinta.
   const loginRequest = { scopes: ["Calendars.Read"] };
 
   const statusEl = document.getElementById("status");
@@ -71,7 +86,7 @@
     try {
       const loginResponse = await msalInstance.loginPopup(loginRequest);
       setStatus("Kirjauduttu sisään: " + loginResponse.account.username);
-      await fetchFreeBusy(loginResponse.accessToken, loginResponse.account.username, loginRequest.scopes);
+      await fetchFreeBusy(loginResponse.accessToken, loginResponse.account.username);
     } catch (err) {
       console.error(err);
       setStatus("Kirjautuminen epäonnistui: " + (err.errorMessage || err.message), true);
@@ -80,7 +95,27 @@
     }
   });
 
-  async function fetchFreeBusy(accessToken, email, scopesUsed) {
+  // ---------------------------------------------------------------
+  // Tietoturvasuodatus: otetaan Graphin vastauksesta tarkalleen vain
+  // status/start/end. Vaikka Graph joskus palauttaisi myös subject- ja
+  // location-kentät (mikä on dokumentoidusti mahdollista Calendars.Read
+  // -oikeudella riippuen kohteen kalenteriasetuksista), niitä ei koskaan
+  // päästetä tämän funktion läpi eteenpäin tallennukseen tai näyttöön.
+  // ---------------------------------------------------------------
+  function sanitizeScheduleItem(item) {
+    return { status: item.status, start: item.start, end: item.end };
+  }
+
+  function sanitizeGraphResponse(raw) {
+    return {
+      value: (raw.value || []).map((schedule) => ({
+        scheduleId: schedule.scheduleId,
+        scheduleItems: (schedule.scheduleItems || []).map(sanitizeScheduleItem),
+      })),
+    };
+  }
+
+  async function fetchFreeBusy(accessToken, email) {
     setStatus("Haetaan vapaa/varattu-tietoja Graph-rajapinnasta…");
 
     const start = new Date();
@@ -104,21 +139,22 @@
       });
 
       if (!res.ok) {
-        // Tunnettu, dokumentoitu ongelma: ReadBasic ei aina riitä getSchedule-kutsuun,
-        // vaikka Microsoftin oma dokumentaatio niin väittää. Yritetään automaattisesti
-        // laajemmalla Calendars.Read-oikeudella ennen kuin näytetään virhe käyttäjälle.
-        if ((res.status === 401 || res.status === 403) && scopesUsed.includes("Calendars.ReadBasic")) {
-          setStatus("ReadBasic-oikeus ei riittänyt — pyydetään laajempi Calendars.Read-oikeus…");
-          const upgraded = await msalInstance.acquireTokenPopup({ scopes: ["Calendars.Read"] });
-          return fetchFreeBusy(upgraded.accessToken, email, ["Calendars.Read"]);
-        }
         const errBody = await res.text();
         throw new Error("Graph API vastasi virheellä (" + res.status + "): " + errBody);
       }
 
       const data = await res.json();
-      renderResults(data);
-      setStatus("Valmis — tiedot haettu suoraan omasta kalenteristasi tälle päivälle klo 8–17. (Käytetty oikeus: " + scopesUsed.join(", ") + ")");
+
+      // Debug: näytetään täysin raaka, suodattamaton vastaus omana
+      // lohkonaan. Tämä EI vaikuta yllä olevaan varsinaiseen näkymään,
+      // joka käyttää edelleen sanitize-funktiota — tämä on pelkkä
+      // rinnakkainen ikkuna siihen mitä Graph oikeasti lähettää.
+      const debugEl = document.getElementById("debugRaw");
+      if (debugEl) debugEl.textContent = JSON.stringify(data, null, 2);
+
+      const clean = sanitizeGraphResponse(data);
+      renderResults(clean);
+      setStatus("Valmis — tiedot haettu suoraan omasta kalenteristasi tälle päivälle klo 8–17.");
     } catch (err) {
       console.error(err);
       setStatus("Kalenterin haku epäonnistui: " + err.message, true);
@@ -135,10 +171,13 @@
     schedule.scheduleItems.forEach((item) => {
       const div = document.createElement("div");
       div.className = "card";
+      // Korjattu: väritys riippuu nyt oikeasti statuksesta, ei ole enää
+      // aina "status-busy" riippumatta todellisesta tilasta.
+      const statusClass = item.status === "free" ? "status-free" : "status-busy";
       const startTime = new Date(item.start.dateTime + "Z").toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit" });
       const endTime = new Date(item.end.dateTime + "Z").toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit" });
       div.innerHTML =
-        '<span class="status-busy">' + item.status + "</span> &middot; " + startTime + "–" + endTime;
+        '<span class="' + statusClass + '">' + item.status + "</span> &middot; " + startTime + "–" + endTime;
       resultsEl.appendChild(div);
     });
   }
