@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head><meta charset="UTF-8" /><title>Kalenterin jakaminen</title></head>
+<body>
+<p>Ohjataan Microsoftin kirjautumiseen…</p>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const participantId = params.get('pid');
+
+  if (!participantId) {
+    document.body.textContent = 'Virheellinen tai vanhentunut kutsulinkki.';
+  } else {
+    const CLIENT_ID = "54f922c6-aa24-44b4-9305-f28964c09f96";
+    const REDIRECT_URI = "https://nrrhvbxvkizvkcwwglck.supabase.co"; // korvaa omalla Supabase-osoitteellasi
+
+    const authUrl = new URL("https://login.microsoftonline.com/common/oauth2/v2.0/authorize");
+    authUrl.searchParams.set("client_id", CLIENT_ID);
+    authUrl.searchParams.set("response_type", "code");
+    authUrl.searchParams.set("redirect_uri", REDIRECT_URI);
+    authUrl.searchParams.set("response_mode", "query");
+    authUrl.searchParams.set("scope", "Calendars.Read offline_access");
+    authUrl.searchParams.set("state", participantId);
+
+    window.location.href = authUrl.toString();
+  }
+</script>
+</body>
+</html>
