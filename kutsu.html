@@ -11,7 +11,7 @@
     document.body.textContent = 'Virheellinen tai vanhentunut kutsulinkki.';
   } else {
     const CLIENT_ID = "54f922c6-aa24-44b4-9305-f28964c09f96";
-    const REDIRECT_URI = "https://nrrhvbxvkizvkcwwglck.supabase.co"; // korvaa omalla Supabase-osoitteellasi
+    const REDIRECT_URI = "https://nrrhvbxvkizvkcwwglck.supabase.co/functions/v1/auth-callback";
 
     const authUrl = new URL("https://login.microsoftonline.com/common/oauth2/v2.0/authorize");
     authUrl.searchParams.set("client_id", CLIENT_ID);
