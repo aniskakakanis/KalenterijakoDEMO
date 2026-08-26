@@ -1,54 +1,27 @@
-<!DOCTYPE html>
-<html lang="fi">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Yhteisikkuna — Projektin hallinta</title>
-<style>
-  body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 720px; margin: 40px auto; padding: 0 20px; }
-  h1 { font-size: 20px; margin-bottom: 4px; }
-  p.sub { color: #586174; font-size: 14px; margin-top: 0; }
-  button { background: #2A4B7C; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-right: 8px; }
-  button:hover { background: #1D3559; }
-  button.secondary { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; }
-  .toolbar { margin: 16px 0 24px; }
-  .card { background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
-  .card .email { font-weight: 600; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; margin-left: 8px; }
-  .badge.pending { background: #FCEfC7; color: #91600C; }
-  .badge.authorized { background: #DCF3E4; color: #1E6B3C; }
-  .slot { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 12.5px; margin: 3px 4px 0 0; }
-  .slot.busy { background: #FBE4E1; color: #9C2C22; }
-  .slot.free { background: #E4F2E9; color: #216B45; }
-  .meta { color: #8A93A3; font-size: 12px; margin-top: 6px; }
-  #inviteResult { margin-top: 10px; font-size: 13px; word-break: break-all; }
-</style>
-</head>
-<body>
-
-<h1 id="projectName">Ladataan projektia…</h1>
-<p class="sub" id="projectOwner"></p>
-
-<div class="toolbar">
-  <button onclick="addParticipant()">+ Lisää osallistuja</button>
-  <button class="secondary" onclick="refreshSchedules()">Päivitä aikataulut</button>
-</div>
-<div id="inviteResult"></div>
-
-<div id="participants"></div>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  // Kovakoodattu demoa varten — tuotannossa tämä tulisi URL-parametrista
   const PROJECT_ID = "e45240d4-2dab-4926-b9ac-d6cd807612cb";
-
   const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
   const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ycmh2Ynh2a2l6dmtjd3dnbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0NjU3NDAsImV4cCI6MjEwMzA0MTc0MH0.S_M4KyTt4E_UG0ue-T-h89L17yxJKkmb36ZzNRdQnLI";
+  const client = supabase.createClient(SUPABASE_URL, ANON_KEY);
+
+  let currentAccessToken = null;
+
+  async function ensureLoggedIn() {
+    const { data: { session } } = await client.auth.getSession();
+    if (!session) {
+      window.location.href = '/login.html';
+      return false;
+    }
+    currentAccessToken = session.access_token;
+    return true;
+  }
 
   function authHeaders() {
     return {
       'Content-Type': 'application/json',
       'apikey': ANON_KEY,
-      'Authorization': 'Bearer ' + ANON_KEY,
+      'Authorization': 'Bearer ' + currentAccessToken,
     };
   }
 
@@ -69,93 +42,3 @@
     document.getElementById('projectOwner').textContent = 'Vastuuhenkilö: ' + data.project.owner_email;
 
     const list = document.getElementById('participants');
-    list.innerHTML = '';
-
-    data.participants.forEach((p) => {
-      const div = document.createElement('div');
-      div.className = 'card';
-
-      let slotsHtml = '<p class="meta">Ei vielä haettua aikataulua</p>';
-      if (p.scheduleItems && p.scheduleItems.length > 0) {
-        slotsHtml = p.scheduleItems.map((item) => {
-          const start = new Date(item.start.dateTime + 'Z').toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
-          const end = new Date(item.end.dateTime + 'Z').toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
-          return `<span class="slot ${item.status}">${item.status === 'free' ? 'Vapaa' : 'Varattu'} ${start}–${end}</span>`;
-        }).join('');
-      } else if (p.scheduleItems && p.scheduleItems.length === 0) {
-        slotsHtml = '<p class="meta">Koko päivä vapaana</p>';
-      }
-
-      const fetchedText = p.fetchedAt
-        ? 'Haettu: ' + new Date(p.fetchedAt).toLocaleString('fi-FI')
-        : '';
-
-      div.innerHTML = `
-        <span class="email">${p.email}</span>
-        <span class="badge ${p.status}">${p.status === 'authorized' ? 'Valtuutettu' : 'Odottaa'}</span>
-        <div style="margin-top:8px;">${slotsHtml}</div>
-        <p class="meta">${fetchedText}</p>
-      `;
-      list.appendChild(div);
-    });
-  }
-
-  async function addParticipant() {
-    const email = prompt('Osallistujan sähköposti:');
-    if (!email) return;
-
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/invite-participant`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({ projectId: PROJECT_ID, email }),
-    });
-    const data = await res.json();
-
-    if (data.error) {
-      document.getElementById('inviteResult').textContent = 'Virhe: ' + data.error;
-      return;
-    }
-
-    document.getElementById('inviteResult').innerHTML =
-      'Kutsulinkki: <a href="' + data.inviteLink + '" target="_blank">' + data.inviteLink + '</a>';
-
-    loadStatus();
-  }
-
-  async function refreshSchedules() {
-    const statusRes = await fetch(`${SUPABASE_URL}/functions/v1/get-project-status`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({ projectId: PROJECT_ID }),
-    });
-    const statusData = await statusRes.json();
-
-    const authorizedIds = statusData.participants
-      .filter((p) => p.status === 'authorized')
-      .map((p) => p.id);
-
-    if (authorizedIds.length === 0) {
-      alert('Ei vielä yhtään valtuutettua osallistujaa.');
-      return;
-    }
-
-    const today = new Date().toISOString().split('T')[0];
-
-    await fetch(`${SUPABASE_URL}/functions/v1/get-schedule`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        participantIds: authorizedIds,
-        startTime: today + 'T08:00:00',
-        endTime: today + 'T17:00:00',
-      }),
-    });
-
-    loadStatus();
-  }
-
-  loadStatus();
-</script>
-
-</body>
-</html>
