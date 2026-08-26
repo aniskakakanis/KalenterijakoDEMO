@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Yhteisikkuna — Kirjaudu</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 360px; margin: 100px auto; padding: 0 20px; }
+  h1 { font-size: 20px; }
+  input { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #DBDFE5; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
+  button { width: 100%; background: #2A4B7C; color: #fff; border: none; padding: 10px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+  button:hover { background: #1D3559; }
+  #status { margin-top: 12px; font-size: 13px; color: #C0453A; }
+</style>
+</head>
+<body>
+
+<h1>Kirjaudu sisään</h1>
+<input type="email" id="email" placeholder="Sähköposti" />
+<input type="password" id="password" placeholder="Salasana" />
+<button onclick="login()">Kirjaudu</button>
+<div id="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
+  const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ycmh2Ynh2a2l6dmtjd3dnbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0NjU3NDAsImV4cCI6MjEwMzA0MTc0MH0.S_M4KyTt4E_UG0ue-T-h89L17yxJKkmb36ZzNRdQnLI";
+  const client = supabase.createClient(SUPABASE_URL, ANON_KEY);
+
+  async function login() {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      document.getElementById('status').textContent = 'Virhe: ' + error.message;
+      return;
+    }
+
+    // Tallennetaan istunto selaimen muistiin (ei localStorage/sessionStorage-
+    // tiedostoon, vaan Supabasen oma kirjasto hoitaa tämän turvallisesti),
+    // ja ohjataan projektisivulle.
+    window.location.href = '/projekti.html';
+  }
+</script>
+
+</body>
+</html>
