@@ -8,6 +8,7 @@
   body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 720px; margin: 40px auto; padding: 0 20px; }
   h1 { font-size: 20px; margin-bottom: 4px; }
   p.sub { color: #586174; font-size: 14px; margin-top: 0; }
+  a.back { font-size: 13px; color: #2A4B7C; text-decoration: none; }
   button { background: #2A4B7C; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-right: 8px; }
   button:hover { background: #1D3559; }
   button.secondary { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; }
@@ -26,6 +27,7 @@
 </head>
 <body>
 
+<a class="back" href="/projektit.html">&larr; Kaikki projektit</a>
 <h1 id="projectName">Ladataan projektia…</h1>
 <p class="sub" id="projectOwner"></p>
 
@@ -39,7 +41,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const PROJECT_ID = "e45240d4-2dab-4926-b9ac-d6cd807612cb";
+  const params = new URLSearchParams(window.location.search);
+  const PROJECT_ID = params.get('id');
+
   const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
   const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ycmh2Ynh2a2l6dmtjd3dnbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0NjU3NDAsImV4cCI6MjEwMzA0MTc0MH0.S_M4KyTt4E_UG0ue-T-h89L17yxJKkmb36ZzNRdQnLI";
   const client = supabase.createClient(SUPABASE_URL, ANON_KEY);
@@ -65,6 +69,11 @@
   }
 
   async function loadStatus() {
+    if (!PROJECT_ID) {
+      document.getElementById('projectName').textContent = 'Virhe: projektin id puuttuu osoitteesta';
+      return;
+    }
+
     const res = await fetch(`${SUPABASE_URL}/functions/v1/get-project-status`, {
       method: 'POST',
       headers: authHeaders(),
