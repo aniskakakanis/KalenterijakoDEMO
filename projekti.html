@@ -1,3 +1,42 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Yhteisikkuna — Projektin hallinta</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 720px; margin: 40px auto; padding: 0 20px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.sub { color: #586174; font-size: 14px; margin-top: 0; }
+  button { background: #2A4B7C; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-right: 8px; }
+  button:hover { background: #1D3559; }
+  button.secondary { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; }
+  .toolbar { margin: 16px 0 24px; }
+  .card { background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+  .card .email { font-weight: 600; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; margin-left: 8px; }
+  .badge.pending { background: #FCEfC7; color: #91600C; }
+  .badge.authorized { background: #DCF3E4; color: #1E6B3C; }
+  .slot { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 12.5px; margin: 3px 4px 0 0; }
+  .slot.busy { background: #FBE4E1; color: #9C2C22; }
+  .slot.free { background: #E4F2E9; color: #216B45; }
+  .meta { color: #8A93A3; font-size: 12px; margin-top: 6px; }
+  #inviteResult { margin-top: 10px; font-size: 13px; word-break: break-all; }
+</style>
+</head>
+<body>
+
+<h1 id="projectName">Ladataan projektia…</h1>
+<p class="sub" id="projectOwner"></p>
+
+<div class="toolbar">
+  <button onclick="addParticipant()">+ Lisää osallistuja</button>
+  <button class="secondary" onclick="refreshSchedules()">Päivitä aikataulut</button>
+</div>
+<div id="inviteResult"></div>
+
+<div id="participants"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   const PROJECT_ID = "e45240d4-2dab-4926-b9ac-d6cd807612cb";
@@ -132,3 +171,6 @@
     if (ok) loadStatus();
   })();
 </script>
+
+</body>
+</html>
