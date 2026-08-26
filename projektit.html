@@ -23,3 +23,80 @@
 <div id="list"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
+  const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ycmh2Ynh2a2l6dmtjd3dnbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0NjU3NDAsImV4cCI6MjEwMzA0MTc0MH0.S_M4KyTt4E_UG0ue-T-h89L17yxJKkmb36ZzNRdQnLI";
+  const client = supabase.createClient(SUPABASE_URL, ANON_KEY);
+
+  let currentAccessToken = null;
+
+  async function ensureLoggedIn() {
+    const { data: { session } } = await client.auth.getSession();
+    if (!session) {
+      window.location.href = '/login.html';
+      return false;
+    }
+    currentAccessToken = session.access_token;
+    return true;
+  }
+
+  function authHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'apikey': ANON_KEY,
+      'Authorization': 'Bearer ' + currentAccessToken,
+    };
+  }
+
+  async function loadProjects() {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/list-projects`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    const data = await res.json();
+
+    const list = document.getElementById('list');
+    list.innerHTML = '';
+
+    if (!data.projects || data.projects.length === 0) {
+      list.innerHTML = '<p id="empty">Ei vielä yhtään projektia — luo ensimmäinen yllä olevasta painikkeesta.</p>';
+      return;
+    }
+
+    data.projects.forEach((p) => {
+      const a = document.createElement('a');
+      a.className = 'card';
+      a.href = `/projekti.html?id=${p.id}`;
+      const created = new Date(p.created_at).toLocaleDateString('fi-FI');
+      a.innerHTML = `<div class="name">${p.name}</div><div class="meta">Luotu ${created}</div>`;
+      list.appendChild(a);
+    });
+  }
+
+  async function createProject() {
+    const name = prompt('Projektin nimi:');
+    if (!name) return;
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/create-project`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ name }),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      alert('Virhe: ' + data.error);
+      return;
+    }
+
+    window.location.href = `/projekti.html?id=${data.project.id}`;
+  }
+
+  (async () => {
+    const ok = await ensureLoggedIn();
+    if (ok) loadProjects();
+  })();
+</script>
+
+</body>
+</html>
