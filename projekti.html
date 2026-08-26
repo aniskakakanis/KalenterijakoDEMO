@@ -42,4 +42,93 @@
     document.getElementById('projectOwner').textContent = 'Vastuuhenkilö: ' + data.project.owner_email;
 
     const list = document.getElementById('participants');
+    list.innerHTML = '';
+
+    data.participants.forEach((p) => {
+      const div = document.createElement('div');
+      div.className = 'card';
+
+      let slotsHtml = '<p class="meta">Ei vielä haettua aikataulua</p>';
+      if (p.scheduleItems && p.scheduleItems.length > 0) {
+        slotsHtml = p.scheduleItems.map((item) => {
+          const start = new Date(item.start.dateTime + 'Z').toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
+          const end = new Date(item.end.dateTime + 'Z').toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
+          return `<span class="slot ${item.status}">${item.status === 'free' ? 'Vapaa' : 'Varattu'} ${start}–${end}</span>`;
+        }).join('');
+      } else if (p.scheduleItems && p.scheduleItems.length === 0) {
+        slotsHtml = '<p class="meta">Koko päivä vapaana</p>';
+      }
+
+      const fetchedText = p.fetchedAt
+        ? 'Haettu: ' + new Date(p.fetchedAt).toLocaleString('fi-FI')
+        : '';
+
+      div.innerHTML = `
+        <span class="email">${p.email}</span>
+        <span class="badge ${p.status}">${p.status === 'authorized' ? 'Valtuutettu' : 'Odottaa'}</span>
+        <div style="margin-top:8px;">${slotsHtml}</div>
+        <p class="meta">${fetchedText}</p>
+      `;
+      list.appendChild(div);
+    });
+  }
+
+  async function addParticipant() {
+    const email = prompt('Osallistujan sähköposti:');
+    if (!email) return;
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/invite-participant`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ projectId: PROJECT_ID, email }),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      document.getElementById('inviteResult').textContent = 'Virhe: ' + data.error;
+      return;
+    }
+
+    document.getElementById('inviteResult').innerHTML =
+      'Kutsulinkki: <a href="' + data.inviteLink + '" target="_blank">' + data.inviteLink + '</a>';
+
+    loadStatus();
+  }
+
+  async function refreshSchedules() {
+    const statusRes = await fetch(`${SUPABASE_URL}/functions/v1/get-project-status`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ projectId: PROJECT_ID }),
+    });
+    const statusData = await statusRes.json();
+
+    const authorizedIds = statusData.participants
+      .filter((p) => p.status === 'authorized')
+      .map((p) => p.id);
+
+    if (authorizedIds.length === 0) {
+      alert('Ei vielä yhtään valtuutettua osallistujaa.');
+      return;
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+
+    await fetch(`${SUPABASE_URL}/functions/v1/get-schedule`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        participantIds: authorizedIds,
+        startTime: today + 'T08:00:00',
+        endTime: today + 'T17:00:00',
+      }),
+    });
+
+    loadStatus();
+  }
+
+  (async () => {
+    const ok = await ensureLoggedIn();
+    if (ok) loadStatus();
+  })();
 </script>
