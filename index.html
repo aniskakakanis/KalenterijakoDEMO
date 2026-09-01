@@ -28,17 +28,6 @@
 <div id="status"></div>
 <div id="results"></div>
 
-<!-- ================================================================
-     VÄLIAIKAINEN DEBUG-LOHKO — poista tämä ennen kuin viet sivun
-     kenenkään muun nähtäväksi tai tuotantoon. Näyttää Graphin täysin
-     raa'an, suodattamattoman vastauksen (mm. subject/location/isPrivate),
-     jotta voit testata esim. private-merkinnän vaikutusta.
-     ================================================================ -->
-<details style="margin-top: 32px; border-top: 1px solid #DBDFE5; padding-top: 16px;">
-  <summary style="cursor: pointer; font-size: 13px; color: #586174;">🔧 Debug: raaka Graph-vastaus (suodattamaton)</summary>
-  <pre id="debugRaw" style="white-space: pre-wrap; word-break: break-word; font-size: 12px; background: #161B22; color: #c9d1d9; padding: 12px; border-radius: 8px; margin-top: 8px; max-height: 400px; overflow: auto;"></pre>
-</details>
-
 <!-- MSAL.js kirjasto suoraan Microsoftin omalta CDN:ltä, ei vaadi asennuksia -->
 <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
 
@@ -145,13 +134,6 @@
 
       const data = await res.json();
 
-      // Debug: näytetään täysin raaka, suodattamaton vastaus omana
-      // lohkonaan. Tämä EI vaikuta yllä olevaan varsinaiseen näkymään,
-      // joka käyttää edelleen sanitize-funktiota — tämä on pelkkä
-      // rinnakkainen ikkuna siihen mitä Graph oikeasti lähettää.
-      const debugEl = document.getElementById("debugRaw");
-      if (debugEl) debugEl.textContent = JSON.stringify(data, null, 2);
-
       const clean = sanitizeGraphResponse(data);
       renderResults(clean);
       setStatus("Valmis — tiedot haettu suoraan omasta kalenteristasi tälle päivälle klo 8–17.");
@@ -171,8 +153,6 @@
     schedule.scheduleItems.forEach((item) => {
       const div = document.createElement("div");
       div.className = "card";
-      // Korjattu: väritys riippuu nyt oikeasti statuksesta, ei ole enää
-      // aina "status-busy" riippumatta todellisesta tilasta.
       const statusClass = item.status === "free" ? "status-free" : "status-busy";
       const startTime = new Date(item.start.dateTime + "Z").toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit" });
       const endTime = new Date(item.end.dateTime + "Z").toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit" });
