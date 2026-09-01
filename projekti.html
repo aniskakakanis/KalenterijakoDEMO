@@ -18,11 +18,14 @@
   .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; margin-left: 8px; }
   .badge.pending { background: #FCEfC7; color: #91600C; }
   .badge.authorized { background: #DCF3E4; color: #1E6B3C; }
-  .slot { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 12.5px; margin: 3px 4px 0 0; }
-  .slot.busy { background: #FBE4E1; color: #9C2C22; }
-  .slot.free { background: #E4F2E9; color: #216B45; }
   .meta { color: #8A93A3; font-size: 12px; margin-top: 6px; }
   #inviteResult { margin-top: 10px; font-size: 13px; word-break: break-all; }
+
+  .timeline-container { margin-top: 10px; }
+  .timeline-ruler { display: flex; justify-content: space-between; font-size: 10px; color: #8A93A3; padding: 0 1px; margin-bottom: 3px; }
+  .timeline { position: relative; height: 28px; background: #EEF1F4; border-radius: 6px; overflow: hidden; border: 1px solid #DBDFE5; }
+  .busy-block { position: absolute; top: 2px; bottom: 2px; background: #E8938A; border-radius: 3px; }
+  .now-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #2A4B7C; }
 </style>
 </head>
 <body>
@@ -68,6 +71,40 @@
     };
   }
 
+  // Piirtää yhden 24h aikajanan valmiiksi sanitoiduista scheduleItems-
+  // tiedoista. Vain "busy"-lohkot piirretään värillisinä — kaikki muu
+  // palkissa on oletuksena vapaata (tyhjä tila).
+  function renderTimeline(items) {
+    const hours = [0, 3, 6, 9, 12, 15, 18, 21, 24];
+    const ruler = hours.map((h) => `<span>${h}</span>`).join('');
+
+    let blocksHtml = '';
+    (items || []).forEach((item) => {
+      if (item.status !== 'busy') return;
+      const start = new Date(item.start.dateTime + 'Z');
+      const end = new Date(item.end.dateTime + 'Z');
+      const startMin = start.getHours() * 60 + start.getMinutes();
+      let endMin = end.getHours() * 60 + end.getMinutes();
+      if (endMin <= startMin) endMin = 1440; // yli puolenyön menevä varaus, katkaistaan päivän loppuun
+      const leftPct = (startMin / 1440) * 100;
+      const widthPct = ((endMin - startMin) / 1440) * 100;
+      const startLabel = start.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
+      const endLabel = end.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
+      blocksHtml += `<div class="busy-block" style="left:${leftPct}%; width:${widthPct}%;" title="Varattu ${startLabel}–${endLabel}"></div>`;
+    });
+
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const nowLeftPct = (nowMin / 1440) * 100;
+
+    return `
+      <div class="timeline-container">
+        <div class="timeline-ruler">${ruler}</div>
+        <div class="timeline">${blocksHtml}<div class="now-line" style="left:${nowLeftPct}%;"></div></div>
+      </div>
+    `;
+  }
+
   async function loadStatus() {
     if (!PROJECT_ID) {
       document.getElementById('projectName').textContent = 'Virhe: projektin id puuttuu osoitteesta';
@@ -96,15 +133,11 @@
       const div = document.createElement('div');
       div.className = 'card';
 
-      let slotsHtml = '<p class="meta">Ei vielä haettua aikataulua</p>';
-      if (p.scheduleItems && p.scheduleItems.length > 0) {
-        slotsHtml = p.scheduleItems.map((item) => {
-          const start = new Date(item.start.dateTime + 'Z').toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
-          const end = new Date(item.end.dateTime + 'Z').toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
-          return `<span class="slot ${item.status}">${item.status === 'free' ? 'Vapaa' : 'Varattu'} ${start}–${end}</span>`;
-        }).join('');
-      } else if (p.scheduleItems && p.scheduleItems.length === 0) {
-        slotsHtml = '<p class="meta">Koko päivä vapaana</p>';
+      let bodyHtml;
+      if (p.scheduleItems === null) {
+        bodyHtml = '<p class="meta">Ei vielä haettua aikataulua</p>';
+      } else {
+        bodyHtml = renderTimeline(p.scheduleItems);
       }
 
       const fetchedText = p.fetchedAt
@@ -114,7 +147,7 @@
       div.innerHTML = `
         <span class="email">${p.email}</span>
         <span class="badge ${p.status}">${p.status === 'authorized' ? 'Valtuutettu' : 'Odottaa'}</span>
-        <div style="margin-top:8px;">${slotsHtml}</div>
+        ${bodyHtml}
         <p class="meta">${fetchedText}</p>
       `;
       list.appendChild(div);
@@ -160,16 +193,19 @@
       return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    // Lasketaan koko paikallinen vuorokausi (00:00–24:00 selaimen omalla
+    // aikavyöhykkeellä) ja muunnetaan se oikeaksi UTC-ajaksi, jota
+    // get-schedule-funktio odottaa.
+    const now = new Date();
+    const localStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const localEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+    const startTime = localStart.toISOString().slice(0, 19);
+    const endTime = localEnd.toISOString().slice(0, 19);
 
     await fetch(`${SUPABASE_URL}/functions/v1/get-schedule`, {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({
-        participantIds: authorizedIds,
-        startTime: today + 'T08:00:00',
-        endTime: today + 'T17:00:00',
-      }),
+      body: JSON.stringify({ participantIds: authorizedIds, startTime, endTime }),
     });
 
     loadStatus();
