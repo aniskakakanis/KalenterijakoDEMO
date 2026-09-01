@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Yhteisikkuna — Uusi projekti</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 780px; margin: 40px auto; padding: 0 20px 60px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  h2 { font-size: 15px; margin: 28px 0 10px; }
+  a.back { font-size: 13px; color: #2A4B7C; text-decoration: none; }
+  label { display: block; font-size: 13px; color: #586174; margin-bottom: 4px; }
+  input[type=text], input[type=email] { width: 100%; padding: 8px 10px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 14px; box-sizing: border-box; }
+  select { padding: 8px 6px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 13px; background: #fff; }
+  .section { background: #fff; border: 1px solid #DBDFE5; border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+
+  .client-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .client-row input { flex: 1; }
+  .client-row button { background: none; border: none; color: #C0453A; cursor: pointer; font-size: 13px; padding: 0 6px; }
+
+  .member-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1.4fr 120px 30px; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .member-header { display: grid; grid-template-columns: 1fr 1fr 1fr 1.4fr 120px 30px; gap: 8px; font-size: 12px; color: #8A93A3; margin-bottom: 6px; }
+  .member-row button.remove { background: none; border: none; color: #C0453A; cursor: pointer; font-size: 16px; }
+
+  button.add { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; padding: 7px 14px; border-radius: 7px; font-size: 13px; cursor: pointer; margin-top: 4px; }
+  button.submit { background: #2A4B7C; color: #fff; border: none; padding: 11px 20px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-top: 10px; }
+  button.submit:hover { background: #1D3559; }
+  button.submit:disabled { opacity: 0.5; cursor: default; }
+
+  #result { margin-top: 20px; }
+  .invite-card { background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; font-size: 13px; }
+  .invite-card .email { font-weight: 600; }
+  .invite-card a { display: block; margin-top: 4px; word-break: break-all; color: #2A4B7C; }
+  #formError { color: #C0453A; font-size: 13px; margin-top: 10px; }
+  .note { font-size: 12px; color: #8A93A3; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<a class="back" href="/projektit.html">&larr; Kaikki projektit</a>
+<h1>Uusi projekti</h1>
+
+<div class="section">
+  <label for="projectName">Projektin nimi</label>
+  <input type="text" id="projectName" placeholder="esim. Kevään yhteensovitus" />
+</div>
+
+<div class="section">
+  <h2 style="margin-top:0;">Asiakasorganisaatiot</h2>
+  <div id="clientRows">
+    <div class="client-row">
+      <input type="text" placeholder="Loppuasiakkaan nimi, esim. Nokia" />
+      <button type="button" onclick="removeClientRow(this)">✕</button>
+    </div>
+  </div>
+  <button class="add" type="button" onclick="addClientRow()">+ Lisää uusi</button>
+</div>
+
+<div class="section">
+  <h2 style="margin-top:0;">Projektin jäsenet</h2>
+  <div class="member-header">
+    <span>Etunimi</span><span>Sukunimi</span><span>Titteli</span><span>Sähköposti</span><span>Rooli</span><span></span>
+  </div>
+  <div id="memberRows">
+    <div class="member-row">
+      <input type="text" placeholder="Etunimi" />
+      <input type="text" placeholder="Sukunimi" />
+      <input type="text" placeholder="Titteli" />
+      <input type="email" placeholder="sahkoposti@yritys.fi" />
+      <select>
+        <option value="guest">Vieras</option>
+        <option value="admin">Pääkäyttäjä</option>
+      </select>
+      <button type="button" class="remove" onclick="removeMemberRow(this)">✕</button>
+    </div>
+  </div>
+  <button class="add" type="button" onclick="addMemberRow()">+ Lisää jäsen</button>
+</div>
+
+<button class="submit" id="submitBtn" onclick="createProject()">Luo uusi projekti</button>
+<div id="formError"></div>
+
+<div id="result"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
+  const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ycmh2Ynh2a2l6dmtjd3dnbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0NjU3NDAsImV4cCI6MjEwMzA0MTc0MH0.S_M4KyTt4E_UG0ue-T-h89L17yxJKkmb36ZzNRdQnLI";
+  const client = supabase.createClient(SUPABASE_URL, ANON_KEY);
+
+  let currentAccessToken = null;
+
+  async function ensureLoggedIn() {
+    const { data: { session } } = await client.auth.getSession();
+    if (!session) {
+      window.location.href = '/login.html';
+      return false;
+    }
+    currentAccessToken = session.access_token;
+    return true;
+  }
+
+  function authHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'apikey': ANON_KEY,
+      'Authorization': 'Bearer ' + currentAccessToken,
+    };
+  }
+
+  function addClientRow() {
+    const div = document.createElement('div');
+    div.className = 'client-row';
+    div.innerHTML = `
+      <input type="text" placeholder="Loppuasiakkaan nimi" />
+      <button type="button" onclick="removeClientRow(this)">✕</button>
+    `;
+    document.getElementById('clientRows').appendChild(div);
+  }
+
+  function removeClientRow(btn) {
+    const rows = document.getElementById('clientRows');
+    if (rows.children.length > 1) btn.parentElement.remove();
+  }
+
+  function addMemberRow() {
+    const div = document.createElement('div');
+    div.className = 'member-row';
+    div.innerHTML = `
+      <input type="text" placeholder="Etunimi" />
+      <input type="text" placeholder="Sukunimi" />
+      <input type="text" placeholder="Titteli" />
+      <input type="email" placeholder="sahkoposti@yritys.fi" />
+      <select>
+        <option value="guest">Vieras</option>
+        <option value="admin">Pääkäyttäjä</option>
+      </select>
+      <button type="button" class="remove" onclick="removeMemberRow(this)">✕</button>
+    `;
+    document.getElementById('memberRows').appendChild(div);
+  }
+
+  function removeMemberRow(btn) {
+    const rows = document.getElementById('memberRows');
+    if (rows.children.length > 1) btn.parentElement.remove();
+  }
+
+  async function createProject() {
+    const errorEl = document.getElementById('formError');
+    errorEl.textContent = '';
+
+    const name = document.getElementById('projectName').value.trim();
+    if (!name) {
+      errorEl.textContent = 'Projektin nimi vaaditaan.';
+      return;
+    }
+
+    const clientOrganizations = Array.from(document.querySelectorAll('#clientRows .client-row input'))
+      .map((el) => el.value.trim())
+      .filter((v) => v !== '');
+
+    const members = Array.from(document.querySelectorAll('#memberRows .member-row')).map((row) => {
+      const inputs = row.querySelectorAll('input');
+      const select = row.querySelector('select');
+      return {
+        firstName: inputs[0].value.trim(),
+        lastName: inputs[1].value.trim(),
+        title: inputs[2].value.trim(),
+        email: inputs[3].value.trim(),
+        role: select.value,
+      };
+    }).filter((m) => m.email !== '');
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Luodaan...';
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-project`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ name, clientOrganizations, members }),
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        errorEl.textContent = 'Virhe: ' + data.error;
+        btn.disabled = false;
+        btn.textContent = 'Luo uusi projekti';
+        return;
+      }
+
+      const resultEl = document.getElementById('result');
+      let html = `<h2>Projekti "${data.project.name}" luotu</h2>`;
+      html += '<p class="note">Sähköpostikutsujen automaattilähetys ei ole vielä käytössä — jaa linkit alla manuaalisesti.</p>';
+
+      data.invites.forEach((inv) => {
+        if (inv.error) {
+          html += `<div class="invite-card"><span class="email">${inv.email}</span> — virhe: ${inv.error}</div>`;
+        } else {
+          html += `<div class="invite-card"><span class="email">${inv.email}</span><a href="${inv.inviteLink}" target="_blank">${inv.inviteLink}</a></div>`;
+        }
+      });
+
+      html += `<button class="submit" onclick="window.location.href='/projekti.html?id=${data.project.id}'">Siirry projektiin</button>`;
+      resultEl.innerHTML = html;
+
+      btn.style.display = 'none';
+    } catch (err) {
+      errorEl.textContent = 'Odottamaton virhe: ' + err.message;
+      btn.disabled = false;
+      btn.textContent = 'Luo uusi projekti';
+    }
+  }
+
+  (async () => {
+    await ensureLoggedIn();
+  })();
+</script>
+
+</body>
+</html>
