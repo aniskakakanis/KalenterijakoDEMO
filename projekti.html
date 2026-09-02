@@ -25,10 +25,6 @@
   .jump input[type=time] { border: 1px solid #DBDFE5; border-radius: 6px; padding: 3px 5px; font-size: 12px; }
   .jump button { padding: 4px 10px; font-size: 12px; margin: 0; }
 
-  /* Kaksipalstainen rakenne: vasemmalla nimet (ei koskaan vieri), oikealla
-     aikajanat (vierii vaakasuunnassa). Vain oikea puoli on overflow-x:auto,
-     joten selaimen oma vierityspalkki alkaa luonnostaan juuri aikajanan
-     kohdalta, ei nimien alta. */
   .dual-pane { display: flex; }
   .names-col { width: 168px; flex: 0 0 168px; }
   .timeline-col { flex: 1; overflow-x: auto; overflow-y: hidden; }
@@ -42,8 +38,11 @@
   .name-row input[type=checkbox] { flex: 0 0 auto; }
   .name-row .checkbox-spacer { width: 14px; flex: 0 0 14px; }
   .name-row .email { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .name-row.clickable { cursor: pointer; }
+  .name-row.clickable:hover .email { text-decoration: underline; }
 
   .timeline-row { width: 1920px; }
+  .timeline-row.clickable { cursor: pointer; }
   .timeline-cell { width: 1920px; flex: 0 0 1920px; position: relative; height: 24px; background: #EEF1F4; border-radius: 6px; border: 1px solid #DBDFE5; }
   .busy-block { position: absolute; top: 2px; bottom: 2px; background: #E8938A; border-radius: 3px; }
   .now-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #2A4B7C; z-index: 2; }
@@ -60,13 +59,20 @@
   .empty-note { color: #8A93A3; font-size: 12.5px; padding: 6px 0; }
 
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; z-index: 10; }
-  .modal { background: #fff; border-radius: 12px; padding: 22px; width: 360px; max-width: 90vw; }
+  .modal { background: #fff; border-radius: 12px; padding: 22px; width: 380px; max-width: 90vw; }
   .modal h3 { margin-top: 0; }
   .modal .selected-list { font-size: 13px; color: #586174; margin-bottom: 12px; max-height: 100px; overflow-y: auto; }
   .modal label { display: block; font-size: 13px; color: #586174; margin: 10px 0 4px; }
   .modal input[type=text] { width: 100%; padding: 8px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 14px; box-sizing: border-box; }
   .modal .visibility-choice { display: flex; gap: 16px; font-size: 13px; margin-top: 4px; }
   .modal .actions { margin-top: 18px; display: flex; justify-content: flex-end; gap: 8px; }
+
+  .member-line { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; font-size: 13.5px; }
+  .member-line + .member-line { border-top: 1px solid #EEF1F4; }
+  .member-line .remove-x { color: #C0453A; cursor: pointer; font-size: 14px; background: none; border: none; padding: 0 4px; margin: 0; }
+  .add-member-row { display: flex; gap: 6px; margin-top: 12px; }
+  .add-member-row select { flex: 1; padding: 7px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 13px; }
+  .add-member-row button { padding: 7px 12px; font-size: 13px; margin: 0; }
 </style>
 </head>
 <body>
@@ -216,9 +222,12 @@
     );
   }
 
-  // Kytkee kaksi elementtiä liikkumaan pystysuunnassa yhdessä: timelineEl on
-  // "isäntä" (näkyvä vierityspalkki), namesEl seuraa sitä passiivisesti
-  // ilman omaa nähtävää vierityspalkkia — näin näkyy vain yksi scrollbar.
+  function canEditGroup(g) {
+    if (!latestStatus) return false;
+    if (g.visibility === 'private') return g.isOwn;
+    return isAdminForProject(latestStatus);
+  }
+
   function linkVerticalScroll(namesEl, timelineEl) {
     timelineEl.addEventListener('scroll', () => {
       namesEl.scrollTop = timelineEl.scrollTop;
@@ -281,8 +290,6 @@
     authorized.forEach((p) => { if (p.scheduleItems) allBusy.push(...p.scheduleItems); });
     document.getElementById('summaryTimelineRow').innerHTML = timelineCellHtml(allBusy);
 
-    // Henkilölista: nimet ja aikajanat kahteen erilliseen, indeksiltään
-    // täsmäävään sarakkeeseen.
     const namesEl = document.getElementById('peopleNamesRows');
     const timelinesEl = document.getElementById('peopleTimelineRows');
     namesEl.innerHTML = '';
@@ -306,19 +313,25 @@
       timelinesEl.appendChild(tRow);
     });
 
-    renderGroupBoard(
-      (data.groups || []).filter((g) => g.isOwn),
-      'ownGroupNames', 'ownGroupTimelines', 'ownGroupsEmpty', 'Ei vielä omia ryhmiä.'
-    );
-    renderGroupBoard(
-      (data.groups || []).filter((g) => g.visibility === 'project'),
-      'projectGroupNames', 'projectGroupTimelines', 'projectGroupsEmpty', 'Ei vielä projektin ryhmiä.'
-    );
+    // "Omat ryhmät" = vain omat YKSITYISET ryhmät. Projektin ryhmät näkyvät
+    // ainoastaan alemmassa "Projektin ryhmät" -laatikossa, vaikka olisit
+    // itse luonut sen.
+    const ownGroups = (data.groups || []).filter((g) => g.visibility === 'private' && g.isOwn);
+    const projectGroups = (data.groups || []).filter((g) => g.visibility === 'project');
+
+    renderGroupBoard(ownGroups, 'ownGroupNames', 'ownGroupTimelines', 'ownGroupsEmpty', 'Ei vielä omia ryhmiä.');
+    renderGroupBoard(projectGroups, 'projectGroupNames', 'projectGroupTimelines', 'projectGroupsEmpty', 'Ei vielä projektin ryhmiä.');
 
     document.getElementById('jumpTime').value = defaultJumpTimeValue();
     setDefaultScroll('peopleTimelineCol');
     setDefaultScroll('ownGroupsTimelineCol');
     setDefaultScroll('projectGroupsTimelineCol');
+  }
+
+  function groupMergedItems(g) {
+    const allItems = [];
+    (g.members || []).forEach((m) => { if (m.scheduleItems) allItems.push(...m.scheduleItems); });
+    return allItems;
   }
 
   function renderGroupBoard(groups, namesId, timelinesId, emptyId, emptyText) {
@@ -336,16 +349,15 @@
 
     groups.forEach((g) => {
       const nameRow = document.createElement('div');
-      nameRow.className = 'name-row';
+      nameRow.className = 'name-row clickable';
+      nameRow.onclick = () => openGroupDetail(g.id);
       nameRow.innerHTML = `<span class="checkbox-spacer"></span><span class="email">${g.name}</span>`;
       namesEl.appendChild(nameRow);
 
-      const allItems = [];
-      (g.members || []).forEach((m) => { if (m.scheduleItems) allItems.push(...m.scheduleItems); });
-
       const tRow = document.createElement('div');
-      tRow.className = 'timeline-row';
-      tRow.innerHTML = timelineCellHtml(allItems);
+      tRow.className = 'timeline-row clickable';
+      tRow.onclick = () => openGroupDetail(g.id);
+      tRow.innerHTML = timelineCellHtml(groupMergedItems(g));
       timelinesEl.appendChild(tRow);
     });
   }
@@ -427,7 +439,7 @@
     ` : '';
 
     document.getElementById('modalHost').innerHTML = `
-      <div class="modal-overlay" onclick="if(event.target===this) closeGroupModal()">
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="modal">
           <h3>Uusi ryhmä</h3>
           <div class="selected-list">${listHtml}</div>
@@ -435,7 +447,7 @@
           <input type="text" id="groupNameInput" placeholder="esim. Johtoryhmä" />
           ${visibilityHtml}
           <div class="actions">
-            <button class="secondary" onclick="closeGroupModal()">Peruuta</button>
+            <button class="secondary" onclick="closeModal()">Peruuta</button>
             <button onclick="submitGroup()">Luo ryhmä</button>
           </div>
         </div>
@@ -443,7 +455,7 @@
     `;
   }
 
-  function closeGroupModal() {
+  function closeModal() {
     document.getElementById('modalHost').innerHTML = '';
   }
 
@@ -476,8 +488,88 @@
 
     selectedParticipantIds.clear();
     document.getElementById('addGroupBtn').disabled = true;
-    closeGroupModal();
+    closeModal();
     loadStatus();
+  }
+
+  // ---- Ryhmän jäsenten hallintapoppup ----
+
+  function openGroupDetail(groupId) {
+    const g = (latestStatus.groups || []).find((x) => x.id === groupId);
+    if (!g) return;
+
+    const editable = canEditGroup(g);
+    const memberIds = new Set((g.members || []).map((m) => m.participantId));
+
+    const memberLinesHtml = (g.members || []).map((m) => {
+      const p = latestStatus.participants.find((pp) => pp.id === m.participantId);
+      const label = p ? nameLabelFor(p) : m.email;
+      const removeBtn = editable
+        ? `<button class="remove-x" onclick="removeGroupMember('${groupId}', '${m.participantId}')">✕</button>`
+        : '';
+      return `<div class="member-line"><span>${label}</span>${removeBtn}</div>`;
+    }).join('') || '<p class="empty-note">Ei jäseniä.</p>';
+
+    let addRowHtml = '';
+    if (editable) {
+      const availableOptions = latestStatus.participants
+        .filter((p) => !memberIds.has(p.id))
+        .map((p) => `<option value="${p.id}">${nameLabelFor(p)}</option>`)
+        .join('');
+
+      addRowHtml = availableOptions
+        ? `
+          <div class="add-member-row">
+            <select id="addMemberSelect">${availableOptions}</select>
+            <button onclick="addGroupMember('${groupId}')">Lisää jäsen</button>
+          </div>
+        `
+        : '<p class="empty-note">Kaikki projektin jäsenet ovat jo tässä ryhmässä.</p>';
+    }
+
+    document.getElementById('modalHost').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal">
+          <h3>${g.name}</h3>
+          <div>${memberLinesHtml}</div>
+          ${addRowHtml}
+          <div class="actions">
+            <button class="secondary" onclick="closeModal()">Sulje</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function callUpdateGroupMembers(groupId, participantId, action) {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/update-group-members`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ groupId, participantId, action }),
+    });
+    return res.json();
+  }
+
+  async function removeGroupMember(groupId, participantId) {
+    const data = await callUpdateGroupMembers(groupId, participantId, 'remove');
+    if (data.error) {
+      alert('Virhe: ' + data.error);
+      return;
+    }
+    await loadStatus();
+    openGroupDetail(groupId);
+  }
+
+  async function addGroupMember(groupId) {
+    const select = document.getElementById('addMemberSelect');
+    if (!select || !select.value) return;
+    const data = await callUpdateGroupMembers(groupId, select.value, 'add');
+    if (data.error) {
+      alert('Virhe: ' + data.error);
+      return;
+    }
+    await loadStatus();
+    openGroupDetail(groupId);
   }
 
   linkVerticalScroll(document.getElementById('peopleNamesRows'), document.getElementById('peopleTimelineRows'));
