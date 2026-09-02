@@ -5,34 +5,54 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Yhteisikkuna — Projektin hallinta</title>
 <style>
-  body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 860px; margin: 40px auto; padding: 0 20px; }
+  body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 860px; margin: 40px auto; padding: 0 20px 60px; }
   h1 { font-size: 20px; margin-bottom: 4px; }
+  h3 { font-size: 14px; margin: 0 0 10px; }
   p.sub { color: #586174; font-size: 14px; margin-top: 0; }
   a.back { font-size: 13px; color: #2A4B7C; text-decoration: none; }
   button { background: #2A4B7C; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-right: 8px; }
   button:hover { background: #1D3559; }
+  button:disabled { opacity: 0.4; cursor: default; }
   button.secondary { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; }
-  .toolbar { margin: 16px 0 24px; }
-  #inviteResult { margin: 0 0 16px; font-size: 13px; word-break: break-all; }
+  .toolbar { margin: 16px 0 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  .toolbar .fetched { font-size: 12px; color: #8A93A3; margin-left: 4px; }
+  #inviteResult { margin: 10px 0 16px; font-size: 13px; word-break: break-all; }
 
-  .board { background: #fff; border: 1px solid #DBDFE5; border-radius: 12px; padding: 16px; }
-  .board-row { display: grid; grid-template-columns: 200px 1fr; align-items: center; gap: 14px; padding: 8px 0; }
-  .board-row + .board-row { border-top: 1px solid #EEF1F4; }
-  .board-row.header { padding-bottom: 10px; }
+  .board-block { margin-bottom: 22px; }
+  .board { background: #fff; border: 1px solid #DBDFE5; border-radius: 12px; padding: 14px 16px; }
+  .board-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .jump { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #586174; }
+  .jump input[type=time] { border: 1px solid #DBDFE5; border-radius: 6px; padding: 3px 5px; font-size: 12px; }
+  .jump button { padding: 4px 10px; font-size: 12px; margin: 0; }
 
-  .who { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
-  .who .email { font-weight: 600; font-size: 13.5px; }
-  .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; }
+  .scroll-x { overflow-x: auto; }
+  .grid-row { display: flex; align-items: center; padding: 6px 0; min-width: 920px; }
+  .grid-row + .grid-row { border-top: 1px solid #EEF1F4; }
+  .who { width: 200px; flex: 0 0 200px; position: sticky; left: 0; background: #fff; z-index: 1; padding-right: 8px; display: flex; align-items: center; gap: 6px; }
+  .who input[type=checkbox] { flex: 0 0 auto; }
+  .who-text { display: flex; flex-direction: column; min-width: 0; }
+  .who .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; width: fit-content; }
   .badge.pending { background: #FCEfC7; color: #91600C; }
   .badge.authorized { background: #DCF3E4; color: #1E6B3C; }
-  .meta { color: #8A93A3; font-size: 11px; margin-top: 2px; width: 100%; }
-
-  .ruler { display: flex; justify-content: space-between; font-size: 10px; color: #8A93A3; }
-
-  .timeline { position: relative; height: 26px; background: #EEF1F4; border-radius: 6px; overflow: hidden; border: 1px solid #DBDFE5; }
+  .badge.summary { background: #E1E6EF; color: #2A4B7C; }
+  .who .email { font-weight: 600; font-size: 13px; margin-top: 2px; }
+  .ruler-cell { width: 1920px; flex: 0 0 1920px; display: flex; justify-content: space-between; font-size: 10px; color: #8A93A3; }
+  .timeline-cell { width: 1920px; flex: 0 0 1920px; position: relative; height: 24px; background: #EEF1F4; border-radius: 6px; border: 1px solid #DBDFE5; }
   .busy-block { position: absolute; top: 2px; bottom: 2px; background: #E8938A; border-radius: 3px; }
   .now-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #2A4B7C; z-index: 2; }
   .no-data { color: #8A93A3; font-size: 12.5px; }
+  .rows-scroll { max-height: 234px; overflow-y: auto; }
+  .rows-scroll.groups { max-height: 190px; }
+  .empty-note { color: #8A93A3; font-size: 12.5px; padding: 6px 0; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; z-index: 10; }
+  .modal { background: #fff; border-radius: 12px; padding: 22px; width: 360px; max-width: 90vw; }
+  .modal h3 { margin-top: 0; }
+  .modal .selected-list { font-size: 13px; color: #586174; margin-bottom: 12px; max-height: 100px; overflow-y: auto; }
+  .modal label { display: block; font-size: 13px; color: #586174; margin: 10px 0 4px; }
+  .modal input[type=text] { width: 100%; padding: 8px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 14px; box-sizing: border-box; }
+  .modal .visibility-choice { display: flex; gap: 16px; font-size: 13px; margin-top: 4px; }
+  .modal .actions { margin-top: 18px; display: flex; justify-content: flex-end; gap: 8px; }
 </style>
 </head>
 <body>
@@ -42,20 +62,61 @@
 <p class="sub" id="projectOwner"></p>
 
 <div class="toolbar">
+  <button id="addGroupBtn" class="secondary" disabled onclick="openGroupModal()">+ Uusi ryhmä</button>
   <button onclick="addParticipant()">+ Lisää osallistuja</button>
   <button class="secondary" onclick="refreshSchedules()">Päivitä aikataulut</button>
+  <span class="fetched" id="fetchedSummary"></span>
 </div>
 <div id="inviteResult"></div>
 
-<div class="board">
-  <div class="board-row header">
-    <div></div>
-    <div class="ruler">
-      <span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span>
+<div class="board-block">
+  <div class="board">
+    <div class="board-topbar">
+      <h3 style="margin:0;">Projektin henkilöt</h3>
+      <div class="jump">
+        <span>Siirry ajankohtaan</span>
+        <input type="time" id="jumpTime" step="1800" />
+        <button type="button" onclick="jumpTo('peopleScroll', document.getElementById('jumpTime').value)">Siirry</button>
+      </div>
+    </div>
+    <div class="scroll-x" id="peopleScroll">
+      <div class="grid-row">
+        <div class="who"></div>
+        <div class="ruler-cell"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+      </div>
+      <div class="grid-row" id="summaryRow"></div>
+      <div class="rows-scroll" id="participants"></div>
     </div>
   </div>
-  <div id="participants"></div>
 </div>
+
+<div class="board-block">
+  <div class="board">
+    <h3>Omat ryhmät</h3>
+    <div class="scroll-x" id="ownGroupsScroll">
+      <div class="grid-row">
+        <div class="who"></div>
+        <div class="ruler-cell"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+      </div>
+      <div class="rows-scroll groups" id="ownGroups"></div>
+    </div>
+  </div>
+</div>
+
+<div class="board-block">
+  <div class="board">
+    <h3>Projektin ryhmät</h3>
+    <div class="scroll-x" id="projectGroupsScroll">
+      <div class="grid-row">
+        <div class="who"></div>
+        <div class="ruler-cell"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+      </div>
+      <div class="rows-scroll groups" id="projectGroups"></div>
+    </div>
+  </div>
+</div>
+
+<div id="modalHost"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -66,7 +127,13 @@
   const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ycmh2Ynh2a2l6dmtjd3dnbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0NjU3NDAsImV4cCI6MjEwMzA0MTc0MH0.S_M4KyTt4E_UG0ue-T-h89L17yxJKkmb36ZzNRdQnLI";
   const client = supabase.createClient(SUPABASE_URL, ANON_KEY);
 
+  const HOUR_PX = 80;
+  const TIMELINE_PX = 24 * HOUR_PX;
+
   let currentAccessToken = null;
+  let currentUserEmail = null;
+  let latestStatus = null;
+  const selectedParticipantIds = new Set();
 
   async function ensureLoggedIn() {
     const { data: { session } } = await client.auth.getSession();
@@ -86,8 +153,8 @@
     };
   }
 
-  function renderTimelineBar(items) {
-    let blocksHtml = '';
+  function busyBlocksHtml(items) {
+    let html = '';
     (items || []).forEach((item) => {
       if (item.status !== 'busy') return;
       const start = new Date(item.start.dateTime + 'Z');
@@ -95,18 +162,102 @@
       const startMin = start.getHours() * 60 + start.getMinutes();
       let endMin = end.getHours() * 60 + end.getMinutes();
       if (endMin <= startMin) endMin = 1440;
-      const leftPct = (startMin / 1440) * 100;
-      const widthPct = ((endMin - startMin) / 1440) * 100;
+      const leftPx = (startMin / 1440) * TIMELINE_PX;
+      const widthPx = ((endMin - startMin) / 1440) * TIMELINE_PX;
       const startLabel = start.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
       const endLabel = end.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
-      blocksHtml += `<div class="busy-block" style="left:${leftPct}%; width:${widthPct}%;" title="Varattu ${startLabel}–${endLabel}"></div>`;
+      html += `<div class="busy-block" style="left:${leftPx}px; width:${widthPx}px;" title="Varattu ${startLabel}–${endLabel}"></div>`;
     });
+    return html;
+  }
 
+  function nowLineHtml() {
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
-    const nowLeftPct = (nowMin / 1440) * 100;
+    const leftPx = (nowMin / 1440) * TIMELINE_PX;
+    return `<div class="now-line" style="left:${leftPx}px;"></div>`;
+  }
 
-    return `<div class="timeline">${blocksHtml}<div class="now-line" style="left:${nowLeftPct}%;"></div></div>`;
+  function timelineCellHtml(items) {
+    return `<div class="timeline-cell">${busyBlocksHtml(items)}${nowLineHtml()}</div>`;
+  }
+
+  function isAdminForProject(status) {
+    if (!status) return false;
+    if (status.project.owner_email.toLowerCase() === currentUserEmail) return true;
+    return status.participants.some(
+      (p) => p.email.toLowerCase() === currentUserEmail && p.role === 'admin' && p.status === 'authorized'
+    );
+  }
+
+  function renderParticipantRow(p) {
+    const row = document.createElement('div');
+    row.className = 'grid-row';
+
+    const nameLabel = (p.firstName || p.lastName) ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : p.email;
+    const checked = selectedParticipantIds.has(p.id) ? 'checked' : '';
+
+    const rightHtml = p.scheduleItems === null
+      ? '<div class="no-data" style="width:1920px;">Ei vielä haettua aikataulua</div>'
+      : timelineCellHtml(p.scheduleItems);
+
+    row.innerHTML = `
+      <div class="who">
+        <input type="checkbox" data-pid="${p.id}" ${checked} onchange="toggleParticipant('${p.id}', this.checked)" />
+        <div class="who-text">
+          <span class="badge ${p.status}">${p.status === 'authorized' ? 'Valtuutettu' : 'Odottaa'}</span>
+          <span class="email">${nameLabel}</span>
+        </div>
+      </div>
+      ${rightHtml}
+    `;
+    return row;
+  }
+
+  function renderGroupRow(g) {
+    const row = document.createElement('div');
+    row.className = 'grid-row';
+
+    const allItems = [];
+    (g.members || []).forEach((m) => {
+      if (m.scheduleItems) allItems.push(...m.scheduleItems);
+    });
+
+    row.innerHTML = `
+      <div class="who">
+        <div class="who-text">
+          <span class="badge summary">${g.visibility === 'project' ? 'Projektin ryhmä' : 'Oma ryhmä'}</span>
+          <span class="email">${g.name}</span>
+        </div>
+      </div>
+      ${timelineCellHtml(allItems)}
+    `;
+    return row;
+  }
+
+  function toggleParticipant(id, checked) {
+    if (checked) selectedParticipantIds.add(id);
+    else selectedParticipantIds.delete(id);
+    document.getElementById('addGroupBtn').disabled = selectedParticipantIds.size === 0;
+  }
+
+  function jumpTo(scrollElId, timeValue) {
+    if (!timeValue) return;
+    const [h, m] = timeValue.split(':').map(Number);
+    const minutes = h * 60 + m;
+    const leftPx = (minutes / 60) * HOUR_PX;
+    document.getElementById(scrollElId).scrollLeft = leftPx;
+  }
+
+  function setDefaultScroll(elId) {
+    const el = document.getElementById(elId);
+    if (el) el.scrollLeft = 9 * HOUR_PX;
+  }
+
+  function defaultJumpTimeValue() {
+    const now = new Date();
+    let m = now.getMinutes() < 30 ? 0 : 30;
+    return String(now.getHours()).padStart(2, '0') + ':' + String(m).padStart(2, '0');
   }
 
   async function loadStatus() {
@@ -127,34 +278,54 @@
       return;
     }
 
+    latestStatus = data;
+    currentUserEmail = data.currentUserEmail;
+
     document.getElementById('projectName').textContent = data.project.name;
     document.getElementById('projectOwner').textContent = 'Vastuuhenkilö: ' + data.project.owner_email;
 
+    const authorized = data.participants.filter((p) => p.status === 'authorized' && p.fetchedAt);
+    const fetchedEl = document.getElementById('fetchedSummary');
+    if (authorized.length === 0) {
+      fetchedEl.textContent = 'Ei vielä haettuja aikatauluja';
+    } else {
+      const latest = authorized.reduce((a, b) => (new Date(a.fetchedAt) > new Date(b.fetchedAt) ? a : b));
+      fetchedEl.textContent = 'Haettu: ' + new Date(latest.fetchedAt).toLocaleString('fi-FI');
+    }
+
+    const allBusy = [];
+    authorized.forEach((p) => { if (p.scheduleItems) allBusy.push(...p.scheduleItems); });
+    document.getElementById('summaryRow').innerHTML = `
+      <div class="who">
+        <div class="who-text">
+          <span class="badge summary">Yhteenveto</span>
+          <span class="email">Koko projekti</span>
+        </div>
+      </div>
+      ${timelineCellHtml(allBusy)}
+    `;
+
     const list = document.getElementById('participants');
     list.innerHTML = '';
+    data.participants.forEach((p) => list.appendChild(renderParticipantRow(p)));
 
-    data.participants.forEach((p) => {
-      const row = document.createElement('div');
-      row.className = 'board-row';
+    const ownGroups = (data.groups || []).filter((g) => g.isOwn);
+    const projectGroups = (data.groups || []).filter((g) => g.visibility === 'project');
 
-      const fetchedText = p.fetchedAt
-        ? 'Haettu: ' + new Date(p.fetchedAt).toLocaleString('fi-FI')
-        : '';
+    const ownEl = document.getElementById('ownGroups');
+    ownEl.innerHTML = '';
+    if (ownGroups.length === 0) ownEl.innerHTML = '<p class="empty-note">Ei vielä omia ryhmiä.</p>';
+    else ownGroups.forEach((g) => ownEl.appendChild(renderGroupRow(g)));
 
-      const rightHtml = p.scheduleItems === null
-        ? '<span class="no-data">Ei vielä haettua aikataulua</span>'
-        : renderTimelineBar(p.scheduleItems);
+    const projEl = document.getElementById('projectGroups');
+    projEl.innerHTML = '';
+    if (projectGroups.length === 0) projEl.innerHTML = '<p class="empty-note">Ei vielä projektin ryhmiä.</p>';
+    else projectGroups.forEach((g) => projEl.appendChild(renderGroupRow(g)));
 
-      row.innerHTML = `
-        <div class="who">
-          <span class="email">${p.email}</span>
-          <span class="badge ${p.status}">${p.status === 'authorized' ? 'Valtuutettu' : 'Odottaa'}</span>
-          <span class="meta">${fetchedText}</span>
-        </div>
-        <div>${rightHtml}</div>
-      `;
-      list.appendChild(row);
-    });
+    document.getElementById('jumpTime').value = defaultJumpTimeValue();
+    setDefaultScroll('peopleScroll');
+    setDefaultScroll('ownGroupsScroll');
+    setDefaultScroll('projectGroupsScroll');
   }
 
   async function addParticipant() {
@@ -208,6 +379,79 @@
       body: JSON.stringify({ participantIds: authorizedIds, startTime, endTime }),
     });
 
+    loadStatus();
+  }
+
+  function openGroupModal() {
+    if (selectedParticipantIds.size === 0 || !latestStatus) return;
+
+    const selectedPeople = latestStatus.participants.filter((p) => selectedParticipantIds.has(p.id));
+    const admin = isAdminForProject(latestStatus);
+
+    const listHtml = selectedPeople.map((p) => {
+      const label = (p.firstName || p.lastName) ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : p.email;
+      return `<div>${label}</div>`;
+    }).join('');
+
+    const visibilityHtml = admin ? `
+      <label>Ryhmän näkyvyys</label>
+      <div class="visibility-choice">
+        <label><input type="radio" name="visibility" value="private" checked /> Oma ryhmä</label>
+        <label><input type="radio" name="visibility" value="project" /> Projektin ryhmä</label>
+      </div>
+    ` : '';
+
+    document.getElementById('modalHost').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeGroupModal()">
+        <div class="modal">
+          <h3>Uusi ryhmä</h3>
+          <div class="selected-list">${listHtml}</div>
+          <label>Ryhmän nimi</label>
+          <input type="text" id="groupNameInput" placeholder="esim. Johtoryhmä" />
+          ${visibilityHtml}
+          <div class="actions">
+            <button class="secondary" onclick="closeGroupModal()">Peruuta</button>
+            <button onclick="submitGroup()">Luo ryhmä</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function closeGroupModal() {
+    document.getElementById('modalHost').innerHTML = '';
+  }
+
+  async function submitGroup() {
+    const name = document.getElementById('groupNameInput').value.trim();
+    if (!name) {
+      alert('Anna ryhmälle nimi.');
+      return;
+    }
+
+    const visibilityInput = document.querySelector('input[name="visibility"]:checked');
+    const visibility = visibilityInput ? visibilityInput.value : 'private';
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/create-group`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        projectId: PROJECT_ID,
+        name,
+        participantIds: Array.from(selectedParticipantIds),
+        visibility,
+      }),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      alert('Virhe: ' + data.error);
+      return;
+    }
+
+    selectedParticipantIds.clear();
+    document.getElementById('addGroupBtn').disabled = true;
+    closeGroupModal();
     loadStatus();
   }
 
