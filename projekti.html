@@ -25,24 +25,38 @@
   .jump input[type=time] { border: 1px solid #DBDFE5; border-radius: 6px; padding: 3px 5px; font-size: 12px; }
   .jump button { padding: 4px 10px; font-size: 12px; margin: 0; }
 
-  .scroll-x { overflow-x: auto; }
-  .grid-row { display: flex; align-items: center; padding: 6px 0; min-width: 920px; }
-  .grid-row + .grid-row { border-top: 1px solid #EEF1F4; }
-  .who { width: 200px; flex: 0 0 200px; position: sticky; left: 0; background: #fff; z-index: 1; padding-right: 8px; display: flex; align-items: center; gap: 6px; }
-  .who input[type=checkbox] { flex: 0 0 auto; }
-  .who-text { display: flex; flex-direction: column; min-width: 0; }
-  .who .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; width: fit-content; }
-  .badge.pending { background: #FCEfC7; color: #91600C; }
-  .badge.authorized { background: #DCF3E4; color: #1E6B3C; }
-  .badge.summary { background: #E1E6EF; color: #2A4B7C; }
-  .who .email { font-weight: 600; font-size: 13px; margin-top: 2px; }
-  .ruler-cell { width: 1920px; flex: 0 0 1920px; display: flex; justify-content: space-between; font-size: 10px; color: #8A93A3; }
+  /* Kaksipalstainen rakenne: vasemmalla nimet (ei koskaan vieri), oikealla
+     aikajanat (vierii vaakasuunnassa). Vain oikea puoli on overflow-x:auto,
+     joten selaimen oma vierityspalkki alkaa luonnostaan juuri aikajanan
+     kohdalta, ei nimien alta. */
+  .dual-pane { display: flex; }
+  .names-col { width: 168px; flex: 0 0 168px; }
+  .timeline-col { flex: 1; overflow-x: auto; overflow-y: hidden; }
+
+  .header-spacer { height: 18px; }
+  .ruler-cell { width: 1920px; height: 18px; display: flex; justify-content: space-between; font-size: 10px; color: #8A93A3; }
+
+  .name-row, .timeline-row { height: 34px; display: flex; align-items: center; }
+  .name-row + .name-row, .timeline-row + .timeline-row { border-top: 1px solid #EEF1F4; }
+  .name-row { gap: 6px; padding-right: 6px; }
+  .name-row input[type=checkbox] { flex: 0 0 auto; }
+  .name-row .checkbox-spacer { width: 14px; flex: 0 0 14px; }
+  .name-row .email { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .timeline-row { width: 1920px; }
   .timeline-cell { width: 1920px; flex: 0 0 1920px; position: relative; height: 24px; background: #EEF1F4; border-radius: 6px; border: 1px solid #DBDFE5; }
   .busy-block { position: absolute; top: 2px; bottom: 2px; background: #E8938A; border-radius: 3px; }
   .now-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #2A4B7C; z-index: 2; }
-  .no-data { color: #8A93A3; font-size: 12.5px; }
-  .rows-scroll { max-height: 234px; overflow-y: auto; }
-  .rows-scroll.groups { max-height: 190px; }
+  .no-data { color: #8A93A3; font-size: 12.5px; width: 1920px; }
+
+  .names-rows { overflow: hidden; }
+  .timeline-rows { overflow-y: auto; overflow-x: hidden; }
+  .rows-people { max-height: 238px; }
+  .rows-groups { max-height: 136px; }
+
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; }
+  .badge.groupvis { background: #E1E6EF; color: #2A4B7C; }
+
   .empty-note { color: #8A93A3; font-size: 12.5px; padding: 6px 0; }
 
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; z-index: 10; }
@@ -76,16 +90,20 @@
       <div class="jump">
         <span>Siirry ajankohtaan</span>
         <input type="time" id="jumpTime" step="1800" />
-        <button type="button" onclick="jumpTo('peopleScroll', document.getElementById('jumpTime').value)">Siirry</button>
+        <button type="button" onclick="jumpTo('peopleTimelineCol', document.getElementById('jumpTime').value)">Siirry</button>
       </div>
     </div>
-    <div class="scroll-x" id="peopleScroll">
-      <div class="grid-row">
-        <div class="who"></div>
-        <div class="ruler-cell"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+    <div class="dual-pane">
+      <div class="names-col">
+        <div class="header-spacer"></div>
+        <div class="name-row"><span class="checkbox-spacer"></span><span class="email">Koko projekti</span></div>
+        <div class="names-rows rows-people" id="peopleNamesRows"></div>
       </div>
-      <div class="grid-row" id="summaryRow"></div>
-      <div class="rows-scroll" id="participants"></div>
+      <div class="timeline-col" id="peopleTimelineCol">
+        <div class="ruler-cell"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+        <div class="timeline-row" id="summaryTimelineRow"></div>
+        <div class="timeline-rows rows-people" id="peopleTimelineRows"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -93,26 +111,34 @@
 <div class="board-block">
   <div class="board">
     <h3>Omat ryhmät</h3>
-    <div class="scroll-x" id="ownGroupsScroll">
-      <div class="grid-row">
-        <div class="who"></div>
-        <div class="ruler-cell"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+    <div class="dual-pane">
+      <div class="names-col">
+        <div class="header-spacer"></div>
+        <div class="names-rows rows-groups" id="ownGroupNames"></div>
       </div>
-      <div class="rows-scroll groups" id="ownGroups"></div>
+      <div class="timeline-col" id="ownGroupsTimelineCol">
+        <div class="ruler-cell"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+        <div class="timeline-rows rows-groups" id="ownGroupTimelines"></div>
+      </div>
     </div>
+    <div id="ownGroupsEmpty"></div>
   </div>
 </div>
 
 <div class="board-block">
   <div class="board">
     <h3>Projektin ryhmät</h3>
-    <div class="scroll-x" id="projectGroupsScroll">
-      <div class="grid-row">
-        <div class="who"></div>
-        <div class="ruler-cell"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+    <div class="dual-pane">
+      <div class="names-col">
+        <div class="header-spacer"></div>
+        <div class="names-rows rows-groups" id="projectGroupNames"></div>
       </div>
-      <div class="rows-scroll groups" id="projectGroups"></div>
+      <div class="timeline-col" id="projectGroupsTimelineCol">
+        <div class="ruler-cell"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+        <div class="timeline-rows rows-groups" id="projectGroupTimelines"></div>
+      </div>
     </div>
+    <div id="projectGroupsEmpty"></div>
   </div>
 </div>
 
@@ -120,8 +146,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const params = new URLSearchParams(window.location.search);
-  const PROJECT_ID = params.get('id');
+  const paramsUrl = new URLSearchParams(window.location.search);
+  const PROJECT_ID = paramsUrl.get('id');
 
   const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
   const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ycmh2Ynh2a2l6dmtjd3dnbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0NjU3NDAsImV4cCI6MjEwMzA0MTc0MH0.S_M4KyTt4E_UG0ue-T-h89L17yxJKkmb36ZzNRdQnLI";
@@ -190,67 +216,24 @@
     );
   }
 
-  function renderParticipantRow(p) {
-    const row = document.createElement('div');
-    row.className = 'grid-row';
-
-    const nameLabel = (p.firstName || p.lastName) ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : p.email;
-    const checked = selectedParticipantIds.has(p.id) ? 'checked' : '';
-
-    const rightHtml = p.scheduleItems === null
-      ? '<div class="no-data" style="width:1920px;">Ei vielä haettua aikataulua</div>'
-      : timelineCellHtml(p.scheduleItems);
-
-    row.innerHTML = `
-      <div class="who">
-        <input type="checkbox" data-pid="${p.id}" ${checked} onchange="toggleParticipant('${p.id}', this.checked)" />
-        <div class="who-text">
-          <span class="badge ${p.status}">${p.status === 'authorized' ? 'Valtuutettu' : 'Odottaa'}</span>
-          <span class="email">${nameLabel}</span>
-        </div>
-      </div>
-      ${rightHtml}
-    `;
-    return row;
-  }
-
-  function renderGroupRow(g) {
-    const row = document.createElement('div');
-    row.className = 'grid-row';
-
-    const allItems = [];
-    (g.members || []).forEach((m) => {
-      if (m.scheduleItems) allItems.push(...m.scheduleItems);
+  // Kytkee kaksi elementtiä liikkumaan pystysuunnassa yhdessä: timelineEl on
+  // "isäntä" (näkyvä vierityspalkki), namesEl seuraa sitä passiivisesti
+  // ilman omaa nähtävää vierityspalkkia — näin näkyy vain yksi scrollbar.
+  function linkVerticalScroll(namesEl, timelineEl) {
+    timelineEl.addEventListener('scroll', () => {
+      namesEl.scrollTop = timelineEl.scrollTop;
     });
-
-    row.innerHTML = `
-      <div class="who">
-        <div class="who-text">
-          <span class="badge summary">${g.visibility === 'project' ? 'Projektin ryhmä' : 'Oma ryhmä'}</span>
-          <span class="email">${g.name}</span>
-        </div>
-      </div>
-      ${timelineCellHtml(allItems)}
-    `;
-    return row;
   }
 
-  function toggleParticipant(id, checked) {
-    if (checked) selectedParticipantIds.add(id);
-    else selectedParticipantIds.delete(id);
-    document.getElementById('addGroupBtn').disabled = selectedParticipantIds.size === 0;
-  }
-
-  function jumpTo(scrollElId, timeValue) {
+  function jumpTo(colId, timeValue) {
     if (!timeValue) return;
     const [h, m] = timeValue.split(':').map(Number);
     const minutes = h * 60 + m;
-    const leftPx = (minutes / 60) * HOUR_PX;
-    document.getElementById(scrollElId).scrollLeft = leftPx;
+    document.getElementById(colId).scrollLeft = (minutes / 60) * HOUR_PX;
   }
 
-  function setDefaultScroll(elId) {
-    const el = document.getElementById(elId);
+  function setDefaultScroll(colId) {
+    const el = document.getElementById(colId);
     if (el) el.scrollLeft = 9 * HOUR_PX;
   }
 
@@ -258,6 +241,10 @@
     const now = new Date();
     let m = now.getMinutes() < 30 ? 0 : 30;
     return String(now.getHours()).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+
+  function nameLabelFor(p) {
+    return (p.firstName || p.lastName) ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : p.email;
   }
 
   async function loadStatus() {
@@ -286,46 +273,87 @@
 
     const authorized = data.participants.filter((p) => p.status === 'authorized' && p.fetchedAt);
     const fetchedEl = document.getElementById('fetchedSummary');
-    if (authorized.length === 0) {
-      fetchedEl.textContent = 'Ei vielä haettuja aikatauluja';
-    } else {
-      const latest = authorized.reduce((a, b) => (new Date(a.fetchedAt) > new Date(b.fetchedAt) ? a : b));
-      fetchedEl.textContent = 'Haettu: ' + new Date(latest.fetchedAt).toLocaleString('fi-FI');
-    }
+    fetchedEl.textContent = authorized.length === 0
+      ? 'Ei vielä haettuja aikatauluja'
+      : 'Haettu: ' + new Date(authorized.reduce((a, b) => (new Date(a.fetchedAt) > new Date(b.fetchedAt) ? a : b)).fetchedAt).toLocaleString('fi-FI');
 
     const allBusy = [];
     authorized.forEach((p) => { if (p.scheduleItems) allBusy.push(...p.scheduleItems); });
-    document.getElementById('summaryRow').innerHTML = `
-      <div class="who">
-        <div class="who-text">
-          <span class="badge summary">Yhteenveto</span>
-          <span class="email">Koko projekti</span>
-        </div>
-      </div>
-      ${timelineCellHtml(allBusy)}
-    `;
+    document.getElementById('summaryTimelineRow').innerHTML = timelineCellHtml(allBusy);
 
-    const list = document.getElementById('participants');
-    list.innerHTML = '';
-    data.participants.forEach((p) => list.appendChild(renderParticipantRow(p)));
+    // Henkilölista: nimet ja aikajanat kahteen erilliseen, indeksiltään
+    // täsmäävään sarakkeeseen.
+    const namesEl = document.getElementById('peopleNamesRows');
+    const timelinesEl = document.getElementById('peopleTimelineRows');
+    namesEl.innerHTML = '';
+    timelinesEl.innerHTML = '';
 
-    const ownGroups = (data.groups || []).filter((g) => g.isOwn);
-    const projectGroups = (data.groups || []).filter((g) => g.visibility === 'project');
+    data.participants.forEach((p) => {
+      const nameRow = document.createElement('div');
+      nameRow.className = 'name-row';
+      const checked = selectedParticipantIds.has(p.id) ? 'checked' : '';
+      nameRow.innerHTML = `
+        <input type="checkbox" data-pid="${p.id}" ${checked} onchange="toggleParticipant('${p.id}', this.checked)" />
+        <span class="email">${nameLabelFor(p)}</span>
+      `;
+      namesEl.appendChild(nameRow);
 
-    const ownEl = document.getElementById('ownGroups');
-    ownEl.innerHTML = '';
-    if (ownGroups.length === 0) ownEl.innerHTML = '<p class="empty-note">Ei vielä omia ryhmiä.</p>';
-    else ownGroups.forEach((g) => ownEl.appendChild(renderGroupRow(g)));
+      const tRow = document.createElement('div');
+      tRow.className = 'timeline-row';
+      tRow.innerHTML = p.scheduleItems === null
+        ? '<div class="no-data">Ei vielä haettua aikataulua</div>'
+        : timelineCellHtml(p.scheduleItems);
+      timelinesEl.appendChild(tRow);
+    });
 
-    const projEl = document.getElementById('projectGroups');
-    projEl.innerHTML = '';
-    if (projectGroups.length === 0) projEl.innerHTML = '<p class="empty-note">Ei vielä projektin ryhmiä.</p>';
-    else projectGroups.forEach((g) => projEl.appendChild(renderGroupRow(g)));
+    renderGroupBoard(
+      (data.groups || []).filter((g) => g.isOwn),
+      'ownGroupNames', 'ownGroupTimelines', 'ownGroupsEmpty', 'Ei vielä omia ryhmiä.'
+    );
+    renderGroupBoard(
+      (data.groups || []).filter((g) => g.visibility === 'project'),
+      'projectGroupNames', 'projectGroupTimelines', 'projectGroupsEmpty', 'Ei vielä projektin ryhmiä.'
+    );
 
     document.getElementById('jumpTime').value = defaultJumpTimeValue();
-    setDefaultScroll('peopleScroll');
-    setDefaultScroll('ownGroupsScroll');
-    setDefaultScroll('projectGroupsScroll');
+    setDefaultScroll('peopleTimelineCol');
+    setDefaultScroll('ownGroupsTimelineCol');
+    setDefaultScroll('projectGroupsTimelineCol');
+  }
+
+  function renderGroupBoard(groups, namesId, timelinesId, emptyId, emptyText) {
+    const namesEl = document.getElementById(namesId);
+    const timelinesEl = document.getElementById(timelinesId);
+    const emptyEl = document.getElementById(emptyId);
+    namesEl.innerHTML = '';
+    timelinesEl.innerHTML = '';
+
+    if (groups.length === 0) {
+      emptyEl.innerHTML = `<p class="empty-note">${emptyText}</p>`;
+      return;
+    }
+    emptyEl.innerHTML = '';
+
+    groups.forEach((g) => {
+      const nameRow = document.createElement('div');
+      nameRow.className = 'name-row';
+      nameRow.innerHTML = `<span class="checkbox-spacer"></span><span class="email">${g.name}</span>`;
+      namesEl.appendChild(nameRow);
+
+      const allItems = [];
+      (g.members || []).forEach((m) => { if (m.scheduleItems) allItems.push(...m.scheduleItems); });
+
+      const tRow = document.createElement('div');
+      tRow.className = 'timeline-row';
+      tRow.innerHTML = timelineCellHtml(allItems);
+      timelinesEl.appendChild(tRow);
+    });
+  }
+
+  function toggleParticipant(id, checked) {
+    if (checked) selectedParticipantIds.add(id);
+    else selectedParticipantIds.delete(id);
+    document.getElementById('addGroupBtn').disabled = selectedParticipantIds.size === 0;
   }
 
   async function addParticipant() {
@@ -388,10 +416,7 @@
     const selectedPeople = latestStatus.participants.filter((p) => selectedParticipantIds.has(p.id));
     const admin = isAdminForProject(latestStatus);
 
-    const listHtml = selectedPeople.map((p) => {
-      const label = (p.firstName || p.lastName) ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : p.email;
-      return `<div>${label}</div>`;
-    }).join('');
+    const listHtml = selectedPeople.map((p) => `<div>${nameLabelFor(p)}</div>`).join('');
 
     const visibilityHtml = admin ? `
       <label>Ryhmän näkyvyys</label>
@@ -454,6 +479,10 @@
     closeGroupModal();
     loadStatus();
   }
+
+  linkVerticalScroll(document.getElementById('peopleNamesRows'), document.getElementById('peopleTimelineRows'));
+  linkVerticalScroll(document.getElementById('ownGroupNames'), document.getElementById('ownGroupTimelines'));
+  linkVerticalScroll(document.getElementById('projectGroupNames'), document.getElementById('projectGroupTimelines'));
 
   (async () => {
     const ok = await ensureLoggedIn();
