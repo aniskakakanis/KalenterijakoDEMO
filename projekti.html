@@ -18,6 +18,10 @@
   .toolbar .fetched { font-size: 12px; color: #8A93A3; margin-left: 4px; }
   #inviteResult { margin: 10px 0 16px; font-size: 13px; word-break: break-all; }
 
+  .date-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; font-size: 13px; color: #586174; background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 10px 14px; }
+  .date-bar input[type=date] { border: 1px solid #DBDFE5; border-radius: 6px; padding: 5px 7px; font-size: 13px; }
+  .date-bar .today-btn { padding: 5px 10px; font-size: 12px; margin: 0; }
+
   .board-block { margin-bottom: 22px; }
   .board { background: #fff; border: 1px solid #DBDFE5; border-radius: 12px; padding: 14px 16px; }
   .board-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -88,6 +92,12 @@
   <span class="fetched" id="fetchedSummary"></span>
 </div>
 <div id="inviteResult"></div>
+
+<div class="date-bar">
+  <span>Näytettävä päivä</span>
+  <input type="date" id="viewDate" onchange="onViewDateChange()" />
+  <button type="button" class="secondary today-btn" onclick="jumpToToday()">Tänään</button>
+</div>
 
 <div class="board-block">
   <div class="board">
@@ -165,6 +175,7 @@
   let currentAccessToken = null;
   let currentUserEmail = null;
   let latestStatus = null;
+  let selectedDateStr = null;
   const selectedParticipantIds = new Set();
 
   async function ensureLoggedIn() {
@@ -185,10 +196,24 @@
     };
   }
 
-  function busyBlocksHtml(items) {
+  function todayDateStr() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function itemDateStr(item) {
+    const d = new Date(item.start.dateTime + 'Z');
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  // Piirretään vain ne varaukset, jotka osuvat valitulle päivälle — data
+  // itsessään voi sisältää jopa 3kk tulevia varauksia, mutta yhdellä
+  // aikajanalla näytetään aina vain yksi päivä kerrallaan.
+  function busyBlocksHtml(items, dateStr) {
     let html = '';
     (items || []).forEach((item) => {
       if (item.status !== 'busy') return;
+      if (itemDateStr(item) !== dateStr) return;
       const start = new Date(item.start.dateTime + 'Z');
       const end = new Date(item.end.dateTime + 'Z');
       const startMin = start.getHours() * 60 + start.getMinutes();
@@ -203,15 +228,16 @@
     return html;
   }
 
-  function nowLineHtml() {
+  function nowLineHtml(dateStr) {
+    if (dateStr !== todayDateStr()) return '';
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const leftPx = (nowMin / 1440) * TIMELINE_PX;
     return `<div class="now-line" style="left:${leftPx}px;"></div>`;
   }
 
-  function timelineCellHtml(items) {
-    return `<div class="timeline-cell">${busyBlocksHtml(items)}${nowLineHtml()}</div>`;
+  function timelineCellHtml(items, dateStr) {
+    return `<div class="timeline-cell">${busyBlocksHtml(items, dateStr)}${nowLineHtml(dateStr)}</div>`;
   }
 
   function isAdminForProject(status) {
@@ -256,6 +282,19 @@
     return (p.firstName || p.lastName) ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : p.email;
   }
 
+  function onViewDateChange() {
+    const val = document.getElementById('viewDate').value;
+    if (!val) return;
+    selectedDateStr = val;
+    renderAll();
+  }
+
+  function jumpToToday() {
+    selectedDateStr = todayDateStr();
+    document.getElementById('viewDate').value = selectedDateStr;
+    renderAll();
+  }
+
   async function loadStatus() {
     if (!PROJECT_ID) {
       document.getElementById('projectName').textContent = 'Virhe: projektin id puuttuu osoitteesta';
@@ -277,6 +316,18 @@
     latestStatus = data;
     currentUserEmail = data.currentUserEmail;
 
+    if (!selectedDateStr) {
+      selectedDateStr = todayDateStr();
+      document.getElementById('viewDate').value = selectedDateStr;
+    }
+
+    renderAll();
+  }
+
+  function renderAll() {
+    const data = latestStatus;
+    if (!data) return;
+
     document.getElementById('projectName').textContent = data.project.name;
     document.getElementById('projectOwner').textContent = 'Vastuuhenkilö: ' + data.project.owner_email;
 
@@ -288,7 +339,7 @@
 
     const allBusy = [];
     authorized.forEach((p) => { if (p.scheduleItems) allBusy.push(...p.scheduleItems); });
-    document.getElementById('summaryTimelineRow').innerHTML = timelineCellHtml(allBusy);
+    document.getElementById('summaryTimelineRow').innerHTML = timelineCellHtml(allBusy, selectedDateStr);
 
     const namesEl = document.getElementById('peopleNamesRows');
     const timelinesEl = document.getElementById('peopleTimelineRows');
@@ -309,13 +360,10 @@
       tRow.className = 'timeline-row';
       tRow.innerHTML = p.scheduleItems === null
         ? '<div class="no-data">Ei vielä haettua aikataulua</div>'
-        : timelineCellHtml(p.scheduleItems);
+        : timelineCellHtml(p.scheduleItems, selectedDateStr);
       timelinesEl.appendChild(tRow);
     });
 
-    // "Omat ryhmät" = vain omat YKSITYISET ryhmät. Projektin ryhmät näkyvät
-    // ainoastaan alemmassa "Projektin ryhmät" -laatikossa, vaikka olisit
-    // itse luonut sen.
     const ownGroups = (data.groups || []).filter((g) => g.visibility === 'private' && g.isOwn);
     const projectGroups = (data.groups || []).filter((g) => g.visibility === 'project');
 
@@ -357,7 +405,7 @@
       const tRow = document.createElement('div');
       tRow.className = 'timeline-row clickable';
       tRow.onclick = () => openGroupDetail(g.id);
-      tRow.innerHTML = timelineCellHtml(groupMergedItems(g));
+      tRow.innerHTML = timelineCellHtml(groupMergedItems(g), selectedDateStr);
       timelinesEl.appendChild(tRow);
     });
   }
@@ -409,7 +457,8 @@
 
     const now = new Date();
     const localStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const localEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+    // Haetaan 3 kuukautta eteenpäin yhdellä kertaa, ei enää vain kuluvaa päivää.
+    const localEnd = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate(), 0, 0, 0);
     const startTime = localStart.toISOString().slice(0, 19);
     const endTime = localEnd.toISOString().slice(0, 19);
 
@@ -491,8 +540,6 @@
     closeModal();
     loadStatus();
   }
-
-  // ---- Ryhmän jäsenten hallintapoppup ----
 
   function openGroupDetail(groupId) {
     const g = (latestStatus.groups || []).find((x) => x.id === groupId);
