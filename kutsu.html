@@ -1,28 +1,382 @@
 <!DOCTYPE html>
 <html lang="fi">
-<head><meta charset="UTF-8" /><title>Kalenterin jakaminen</title></head>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Yhteisikkuna — Kutsu</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 480px; margin: 60px auto; padding: 0 20px 60px; }
+  h1 { font-size: 20px; }
+  p.sub { color: #586174; font-size: 14px; }
+  .card { background: #fff; border: 1px solid #DBDFE5; border-radius: 12px; padding: 22px; }
+  button { background: #2A4B7C; color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-size: 14px; cursor: pointer; width: 100%; margin-top: 6px; }
+  button:hover { background: #1D3559; }
+  button.secondary { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; }
+  label { display: block; font-size: 13px; color: #586174; margin: 12px 0 4px; }
+  input[type=text] { width: 100%; padding: 8px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 14px; box-sizing: border-box; }
+  .banner { padding: 10px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; }
+  .banner.ok { background: #DCF3E4; color: #1E6B3C; }
+  .banner.error { background: #FBE4E1; color: #9C2C22; }
+  .checkmark { color: #1E6B3C; font-size: 13.5px; margin: 6px 0; }
+  .day-block { border-top: 1px solid #EEF1F4; padding: 8px 0; }
+  .day-toggle { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; margin: 0; }
+  .ranges { margin: 8px 0 4px 24px; }
+  .range-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .range-row input[type=time] { padding: 5px; border: 1px solid #DBDFE5; border-radius: 6px; font-size: 12.5px; }
+  .remove-x { color: #C0453A; background: none; border: none; cursor: pointer; padding: 0 4px; width: auto; margin: 0; }
+  .add-range-btn { width: auto; padding: 5px 10px; font-size: 12px; margin: 2px 0 0; }
+  .blackout-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .blackout-row input[type=datetime-local] { padding: 5px; border: 1px solid #DBDFE5; border-radius: 6px; font-size: 12.5px; }
+  .fully-hidden-row { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-top: 16px; }
+  .empty-note { color: #8A93A3; font-size: 12px; }
+  h3 { font-size: 13.5px; margin: 18px 0 6px; }
+</style>
+</head>
 <body>
-<p>Ohjataan Microsoftin kirjautumiseen…</p>
+
+<div id="app">Ladataan…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const params = new URLSearchParams(window.location.search);
-  const participantId = params.get('pid');
+  const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
+  const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ycmh2Ynh2a2l6dmtjd3dnbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0NjU3NDAsImV4cCI6MjEwMzA0MTc0MH0.S_M4KyTt4E_UG0ue-T-h89L17yxJKkmb36ZzNRdQnLI";
+  const client = supabase.createClient(SUPABASE_URL, ANON_KEY);
 
-  if (!participantId) {
-    document.body.textContent = 'Virheellinen tai vanhentunut kutsulinkki.';
-  } else {
-    const CLIENT_ID = "54f922c6-aa24-44b4-9305-f28964c09f96";
-    const REDIRECT_URI = "https://nrrhvbxvkizvkcwwglck.supabase.co/functions/v1/auth-callback";
+  const CLIENT_ID = "54f922c6-aa24-44b4-9305-f28964c09f96";
+  const CALENDAR_REDIRECT_URI = "https://nrrhvbxvkizvkcwwglck.supabase.co/functions/v1/auth-callback";
 
-    const authUrl = new URL("https://login.microsoftonline.com/common/oauth2/v2.0/authorize");
-    authUrl.searchParams.set("client_id", CLIENT_ID);
-    authUrl.searchParams.set("response_type", "code");
-    authUrl.searchParams.set("redirect_uri", REDIRECT_URI);
-    authUrl.searchParams.set("response_mode", "query");
-    authUrl.searchParams.set("scope", "User.Read Calendars.Read offline_access");
-    authUrl.searchParams.set("state", participantId);
+  const WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
 
+  let PID = null;
+  let inviteInfo = null;
+  let currentAccessToken = null;
+  let settingsState = null;
+
+  function authHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'apikey': ANON_KEY,
+      'Authorization': 'Bearer ' + currentAccessToken,
+    };
+  }
+
+  function app() {
+    return document.getElementById('app');
+  }
+
+  async function init() {
+    const params = new URLSearchParams(window.location.search);
+    PID = params.get('pid');
+    const status = params.get('status');
+
+    if (!PID) {
+      app().innerHTML = '<div class="card">Virheellinen tai vanhentunut kutsulinkki.</div>';
+      return;
+    }
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/get-invite-info`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': ANON_KEY },
+      body: JSON.stringify({ participantId: PID }),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      app().innerHTML = `<div class="card">Virhe: ${data.error}</div>`;
+      return;
+    }
+    inviteInfo = data;
+
+    const { data: { session } } = await client.auth.getSession();
+
+    if (!session) {
+      renderLoginStep();
+      return;
+    }
+
+    const sessionEmail = session.user.email.toLowerCase();
+    currentAccessToken = session.access_token;
+
+    if (sessionEmail !== inviteInfo.email.toLowerCase()) {
+      renderEmailMismatch(sessionEmail);
+      return;
+    }
+
+    if (inviteInfo.needsRegistration) {
+      renderRegistrationStep();
+    } else {
+      renderProjectStep(status);
+    }
+  }
+
+  function renderLoginStep() {
+    app().innerHTML = `
+      <div class="card">
+        <h1>Kutsu projektiin</h1>
+        <p class="sub">Sinut on kutsuttu projektiin <strong>${inviteInfo.projectName}</strong> osoitteella ${inviteInfo.email}.</p>
+        <button onclick="loginWithMicrosoft()">Kirjaudu Microsoft-tilillä</button>
+      </div>
+    `;
+  }
+
+  function loginWithMicrosoft() {
+    client.auth.signInWithOAuth({
+      provider: 'azure',
+      options: {
+        scopes: 'email',
+        redirectTo: window.location.origin + '/kutsu.html?pid=' + PID,
+      },
+    });
+  }
+
+  function renderEmailMismatch(sessionEmail) {
+    app().innerHTML = `
+      <div class="card">
+        <h1>Väärä tili</h1>
+        <p class="sub">Olet kirjautunut osoitteella <strong>${sessionEmail}</strong>, mutta kutsu on osoitettu osoitteelle <strong>${inviteInfo.email}</strong>.</p>
+        <button onclick="logoutAndRetry()">Kirjaudu ulos ja yritä uudelleen</button>
+      </div>
+    `;
+  }
+
+  async function logoutAndRetry() {
+    await client.auth.signOut();
+    window.location.reload();
+  }
+
+  function renderRegistrationStep() {
+    const p = inviteInfo.prefill;
+    app().innerHTML = `
+      <div class="card">
+        <h1>Täydennä tietosi</h1>
+        <p class="sub">Projekti: <strong>${inviteInfo.projectName}</strong></p>
+
+        <label>Etunimi</label>
+        <input type="text" id="regFirstName" value="${p.firstName}" />
+        <label>Sukunimi</label>
+        <input type="text" id="regLastName" value="${p.lastName}" />
+        <label>Titteli</label>
+        <input type="text" id="regTitle" value="${p.title}" />
+        <label>Organisaatio</label>
+        <input type="text" id="regOrganization" value="${p.organization}" />
+
+        <button onclick="saveProfile()">Tallenna ja jatka</button>
+      </div>
+    `;
+  }
+
+  async function saveProfile() {
+    const body = {
+      participantId: PID,
+      firstName: document.getElementById('regFirstName').value,
+      lastName: document.getElementById('regLastName').value,
+      title: document.getElementById('regTitle').value,
+      organization: document.getElementById('regOrganization').value,
+    };
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/update-invite-profile`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      alert('Virhe: ' + data.error);
+      return;
+    }
+
+    renderProjectStep(null);
+  }
+
+  function startCalendarAuth() {
+    const authUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
+    authUrl.searchParams.set('client_id', CLIENT_ID);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('redirect_uri', CALENDAR_REDIRECT_URI);
+    authUrl.searchParams.set('response_mode', 'query');
+    authUrl.searchParams.set('scope', 'User.Read Calendars.Read offline_access');
+    authUrl.searchParams.set('state', PID);
     window.location.href = authUrl.toString();
   }
+
+  function statusBannerHtml(status) {
+    if (!status) return '';
+    if (status === 'ok') return '<div class="banner ok">Kalenterin valtuutus onnistui.</div>';
+    if (status === 'denied') return '<div class="banner error">Valtuutus peruutettiin.</div>';
+    if (status === 'email_mismatch') return '<div class="banner error">Kirjauduit kalenterivaltuutuksessa eri Microsoft-tilillä kuin kutsu on osoitettu. Käytä samaa tiliä molemmissa vaiheissa.</div>';
+    return '<div class="banner error">Valtuutus epäonnistui, yritä uudelleen.</div>';
+  }
+
+  async function renderProjectStep(status) {
+    // Siivotaan status-parametri osoitteesta, jotta se ei jää sivulle
+    // päivityksen varalle, mutta pid säilyy.
+    window.history.replaceState({}, '', `/kutsu.html?pid=${PID}`);
+
+    const calendarSectionHtml = inviteInfo.calendarAuthorized
+      ? '<p class="checkmark">✓ Kalenterisi on valtuutettu.</p>'
+      : '<button class="secondary" onclick="startCalendarAuth()">Anna sovellukselle lupa nähdä kalenterisi saatavilla/kiireinen ajat</button>';
+
+    app().innerHTML = `
+      <div class="card">
+        <h1>Liity projektiin</h1>
+        ${statusBannerHtml(status)}
+        <p class="sub">Sinut on kutsuttu projektiin <strong>${inviteInfo.projectName}</strong>. Määritä projektikohtaiset asetukset ja liity sen jäseneksi.</p>
+
+        ${calendarSectionHtml}
+
+        <div id="settingsArea">Ladataan asetuksia…</div>
+
+        <button onclick="joinProject()">Liity projektiin</button>
+      </div>
+    `;
+
+    await loadSettingsInline();
+  }
+
+  async function loadSettingsInline() {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/get-participant-settings`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ projectId: inviteInfo.projectId }),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      document.getElementById('settingsArea').innerHTML = `<p class="empty-note">Asetuksia ei voitu ladata: ${data.error}</p>`;
+      return;
+    }
+
+    settingsState = {
+      fullyHidden: !!data.fullyHidden,
+      windowsByDay: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] },
+      blackouts: [],
+    };
+
+    (data.windows || []).forEach((w) => {
+      settingsState.windowsByDay[w.weekday].push({ start: w.start_time.slice(0, 5), end: w.end_time.slice(0, 5) });
+    });
+    (data.blackouts || []).forEach((b) => {
+      settingsState.blackouts.push({ startAt: b.start_at.slice(0, 16), endAt: b.end_at.slice(0, 16) });
+    });
+
+    renderSettingsInline();
+  }
+
+  function toggleSettingsDay(day, checked) {
+    if (checked) {
+      if (settingsState.windowsByDay[day].length === 0) settingsState.windowsByDay[day].push({ start: '09:00', end: '17:00' });
+    } else {
+      settingsState.windowsByDay[day] = [];
+    }
+    renderSettingsInline();
+  }
+
+  function addSettingsRange(day) {
+    settingsState.windowsByDay[day].push({ start: '09:00', end: '17:00' });
+    renderSettingsInline();
+  }
+
+  function removeSettingsRange(day, idx) {
+    settingsState.windowsByDay[day].splice(idx, 1);
+    renderSettingsInline();
+  }
+
+  function updateSettingsRangeField(day, idx, field, value) {
+    settingsState.windowsByDay[day][idx][field] = value;
+  }
+
+  function addBlackout() {
+    settingsState.blackouts.push({ startAt: '', endAt: '' });
+    renderSettingsInline();
+  }
+
+  function removeBlackout(idx) {
+    settingsState.blackouts.splice(idx, 1);
+    renderSettingsInline();
+  }
+
+  function updateBlackoutField(idx, field, value) {
+    settingsState.blackouts[idx][field] = value;
+  }
+
+  function renderSettingsInline() {
+    let daysHtml = '';
+    for (let d = 0; d < 7; d++) {
+      const ranges = settingsState.windowsByDay[d];
+      const enabled = ranges.length > 0;
+      const rangesHtml = ranges.map((r, idx) => `
+        <div class="range-row">
+          <input type="time" value="${r.start}" onchange="updateSettingsRangeField(${d}, ${idx}, 'start', this.value)" />
+          <span>–</span>
+          <input type="time" value="${r.end}" onchange="updateSettingsRangeField(${d}, ${idx}, 'end', this.value)" />
+          <button type="button" class="remove-x" onclick="removeSettingsRange(${d}, ${idx})">✕</button>
+        </div>
+      `).join('');
+
+      daysHtml += `
+        <div class="day-block">
+          <label class="day-toggle">
+            <input type="checkbox" ${enabled ? 'checked' : ''} onchange="toggleSettingsDay(${d}, this.checked)" />
+            ${WEEKDAY_LABELS[d]}
+          </label>
+          ${enabled ? `<div class="ranges">${rangesHtml}<button type="button" class="secondary add-range-btn" onclick="addSettingsRange(${d})">+ Lisää kellonaika</button></div>` : ''}
+        </div>
+      `;
+    }
+
+    const blackoutsHtml = settingsState.blackouts.map((b, idx) => `
+      <div class="blackout-row">
+        <input type="datetime-local" value="${b.startAt}" onchange="updateBlackoutField(${idx}, 'startAt', this.value)" />
+        <span>–</span>
+        <input type="datetime-local" value="${b.endAt}" onchange="updateBlackoutField(${idx}, 'endAt', this.value)" />
+        <button type="button" class="remove-x" onclick="removeBlackout(${idx})">✕</button>
+      </div>
+    `).join('') || '<p class="empty-note">Ei rajoitusjaksoja.</p>';
+
+    document.getElementById('settingsArea').innerHTML = `
+      <h3>Näytä kalenterini muille näinä ajankohtina</h3>
+      <p class="empty-note">Jos et aktivoi yhtään päivää, kalenterisi näkyy muille aina.</p>
+      ${daysHtml}
+
+      <h3>Rajoita kalenterin näkyvyys projektille tiettynä ajankohtana</h3>
+      <div id="blackoutsList">${blackoutsHtml}</div>
+      <button type="button" class="secondary" onclick="addBlackout()">+ Lisää uusi</button>
+
+      <label class="fully-hidden-row">
+        <input type="checkbox" ${settingsState.fullyHidden ? 'checked' : ''} onchange="settingsState.fullyHidden = this.checked" />
+        Rajoita kalenterini näkyminen projektille
+      </label>
+    `;
+  }
+
+  async function saveSettingsInline() {
+    const windows = [];
+    for (let d = 0; d < 7; d++) {
+      settingsState.windowsByDay[d].forEach((r) => {
+        if (r.start && r.end) windows.push({ weekday: d, startTime: r.start + ':00', endTime: r.end + ':00' });
+      });
+    }
+    const blackouts = settingsState.blackouts
+      .filter((b) => b.startAt && b.endAt)
+      .map((b) => ({ startAt: b.startAt + ':00.000Z', endAt: b.endAt + ':00.000Z' }));
+
+    await fetch(`${SUPABASE_URL}/functions/v1/update-participant-settings`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ projectId: inviteInfo.projectId, fullyHidden: settingsState.fullyHidden, windows, blackouts }),
+    });
+  }
+
+  async function joinProject() {
+    if (settingsState) {
+      await saveSettingsInline();
+    }
+    window.location.href = `/projekti.html?id=${inviteInfo.projectId}`;
+  }
+
+  init();
 </script>
+
 </body>
 </html>
