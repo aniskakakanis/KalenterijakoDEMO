@@ -17,7 +17,7 @@
 </style>
 </head>
 <body>
-
+<button class="secondary" style="float:right;" onclick="logout()">Kirjaudu ulos</button>
 <h1>Omat projektit</h1>
 <a class="back" href="/uusiprojekti.html" style="display:inline-block; background:#2A4B7C; color:#fff; padding:9px 16px; border-radius:8px; font-size:14px; text-decoration:none; margin-bottom:20px;">+ Uusi projekti</a>
 <div id="list"></div>
@@ -62,6 +62,11 @@
       list.innerHTML = '<p id="empty">Ei vielä yhtään projektia — luo ensimmäinen yllä olevasta painikkeesta.</p>';
       return;
     }
+
+    async function logout() {
+      await client.auth.signOut();
+      window.location.href = '/login.html';
+        }
 
     data.projects.forEach((p) => {
       const a = document.createElement('a');
