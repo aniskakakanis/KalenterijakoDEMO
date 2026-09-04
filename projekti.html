@@ -94,7 +94,7 @@
 </style>
 </head>
 <body>
-
+<button class="secondary" style="float:right;" onclick="logout()">Kirjaudu ulos</button>
 <a class="back" href="/projektit.html">&larr; Kaikki projektit</a>
 <h1 id="projectName">Ladataan projektia…</h1>
 <p class="sub" id="projectOwner"></p>
@@ -205,6 +205,12 @@
     return true;
   }
 
+async function logout() {
+  await client.auth.signOut();
+  window.location.href = '/login.html';
+}
+
+  
   function authHeaders() {
     return {
       'Content-Type': 'application/json',
