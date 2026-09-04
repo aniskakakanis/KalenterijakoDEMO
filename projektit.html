@@ -9,6 +9,7 @@
   h1 { font-size: 20px; margin-bottom: 16px; }
   button { background: #2A4B7C; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-bottom: 20px; }
   button:hover { background: #1D3559; }
+  button.secondary { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; }
   .card { background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; cursor: pointer; text-decoration: none; display: block; color: inherit; }
   .card:hover { border-color: #2A4B7C; }
   .card .name { font-weight: 600; font-size: 15px; }
@@ -21,13 +22,11 @@
 <h1>Omat projektit</h1>
 <a class="back" href="/uusiprojekti.html" style="display:inline-block; background:#2A4B7C; color:#fff; padding:9px 16px; border-radius:8px; font-size:14px; text-decoration:none; margin-bottom:20px;">+ Uusi projekti</a>
 <div id="list"></div>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
   const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ycmh2Ynh2a2l6dmtjd3dnbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0NjU3NDAsImV4cCI6MjEwMzA0MTc0MH0.S_M4KyTt4E_UG0ue-T-h89L17yxJKkmb36ZzNRdQnLI";
   const client = supabase.createClient(SUPABASE_URL, ANON_KEY);
-
   let currentAccessToken = null;
 
   async function ensureLoggedIn() {
@@ -48,26 +47,23 @@
     };
   }
 
+  async function logout() {
+    await client.auth.signOut();
+    window.location.href = '/login.html';
+  }
+
   async function loadProjects() {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/list-projects`, {
       method: 'POST',
       headers: authHeaders(),
     });
     const data = await res.json();
-
     const list = document.getElementById('list');
     list.innerHTML = '';
-
     if (!data.projects || data.projects.length === 0) {
       list.innerHTML = '<p id="empty">Ei vielä yhtään projektia — luo ensimmäinen yllä olevasta painikkeesta.</p>';
       return;
     }
-
-    async function logout() {
-      await client.auth.signOut();
-      window.location.href = '/login.html';
-        }
-
     data.projects.forEach((p) => {
       const a = document.createElement('a');
       a.className = 'card';
@@ -81,19 +77,16 @@
   async function createProject() {
     const name = prompt('Projektin nimi:');
     if (!name) return;
-
     const res = await fetch(`${SUPABASE_URL}/functions/v1/create-project`, {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({ name }),
     });
     const data = await res.json();
-
     if (data.error) {
       alert('Virhe: ' + data.error);
       return;
     }
-
     window.location.href = `/projekti.html?id=${data.project.id}`;
   }
 
@@ -102,6 +95,5 @@
     if (ok) loadProjects();
   })();
 </script>
-
 </body>
 </html>
