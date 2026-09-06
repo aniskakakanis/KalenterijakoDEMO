@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Yhteisikkuna — Asiakkaat</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 720px; margin: 40px auto; padding: 0 20px 60px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  h3 { font-size: 14px; margin: 0 0 10px; }
+  p.sub { color: #586174; font-size: 14px; margin-top: 0; }
+  a.back { font-size: 13px; color: #2A4B7C; text-decoration: none; }
+  button { background: #2A4B7C; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-right: 8px; }
+  button:hover { background: #1D3559; }
+  button.secondary { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; }
+  .toolbar { margin: 16px 0; display: flex; justify-content: space-between; align-items: center; }
+  .card { background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; cursor: pointer; }
+  .card:hover { border-color: #2A4B7C; }
+  .card .name { font-weight: 600; font-size: 15px; }
+  .card .meta { color: #8A93A3; font-size: 12px; margin-top: 4px; }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; margin-left: 6px; }
+  .badge.domain { background: #DCF3E4; color: #1E6B3C; }
+  .badge.restricted { background: #E1E6EF; color: #2A4B7C; }
+  .empty-note { color: #8A93A3; font-size: 13px; }
+
+  .form-section { background: #fff; border: 1px solid #DBDFE5; border-radius: 12px; padding: 18px; margin-bottom: 20px; }
+  label { display: block; font-size: 13px; color: #586174; margin: 10px 0 4px; }
+  input[type=text], input[type=email] { width: 100%; padding: 8px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 14px; box-sizing: border-box; }
+  .radio-row { display: flex; gap: 16px; font-size: 13px; margin-top: 4px; }
+  .repeat-row { display: flex; gap: 6px; margin-bottom: 6px; }
+  .repeat-row input { flex: 1; }
+  .repeat-row button { background: none; border: none; color: #C0453A; cursor: pointer; padding: 0 6px; margin: 0; }
+  .add-btn { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; padding: 6px 12px; font-size: 12.5px; margin-top: 2px; }
+
+  .project-card { background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; text-decoration: none; display: block; color: inherit; }
+  .project-card:hover { border-color: #2A4B7C; }
+  .project-card .name { font-weight: 600; font-size: 14px; }
+  .project-card .meta { color: #8A93A3; font-size: 12px; margin-top: 3px; }
+</style>
+</head>
+<body>
+
+<a class="back" href="/projektit.html">&larr; Omat projektit</a>
+<h1>Asiakkaat</h1>
+<p class="sub">Asiakasorganisaatioiden hallinta (vain superadmin)</p>
+
+<div id="app">Ladataan…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
+  const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ycmh2Ynh2a2l6dmtjd3dnbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0NjU3NDAsImV4cCI6MjEwMzA0MTc0MH0.S_M4KyTt4E_UG0ue-T-h89L17yxJKkmb36ZzNRdQnLI";
+  const client = supabase.createClient(SUPABASE_URL, ANON_KEY);
+
+  let currentAccessToken = null;
+  let organizations = [];
+  let creating = false;
+  let superuserEmails = [''];
+  let memberEmails = [''];
+
+  function authHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'apikey': ANON_KEY,
+      'Authorization': 'Bearer ' + currentAccessToken,
+    };
+  }
+
+  async function ensureLoggedIn() {
+    const { data: { session } } = await client.auth.getSession();
+    if (!session) {
+      window.location.href = '/login.html';
+      return false;
+    }
+    currentAccessToken = session.access_token;
+    return true;
+  }
+
+  async function loadOrganizations() {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/list-organizations`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      document.getElementById('app').innerHTML = `<p class="empty-note">Virhe: ${data.error}</p>`;
+      return;
+    }
+
+    organizations = data.organizations;
+    renderList();
+  }
+
+  function renderList() {
+    creating = false;
+    const app = document.getElementById('app');
+
+    let listHtml = '';
+    if (organizations.length === 0) {
+      listHtml = '<p class="empty-note">Ei vielä yhtään asiakkuutta.</p>';
+    } else {
+      listHtml = organizations.map((o) => {
+        const badge = o.access_mode === 'domain'
+          ? `<span class="badge domain">Koko domain: ${o.email_domain}</span>`
+          : `<span class="badge restricted">Vain listatut</span>`;
+        const superuserCount = o.members.filter((m) => m.role === 'superuser').length;
+        return `
+          <div class="card" onclick="openOrganization('${o.id}')">
+            <div class="name">${o.name}${badge}</div>
+            <div class="meta">${superuserCount} pääkäyttäjää · ${o.members.length} jäsentä listattu</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    app.innerHTML = `
+      <div class="toolbar">
+        <span></span>
+        <button class="secondary" onclick="showCreateForm()">+ Uusi asiakkuus</button>
+      </div>
+      <div id="orgList">${listHtml}</div>
+    `;
+  }
+
+  function showCreateForm() {
+    creating = true;
+    superuserEmails = [''];
+    memberEmails = [''];
+    renderCreateForm();
+  }
+
+  function renderCreateForm() {
+    const app = document.getElementById('app');
+
+    const superuserRows = superuserEmails.map((val, idx) => `
+      <div class="repeat-row">
+        <input type="email" value="${val}" placeholder="paakayttaja@yritys.fi" onchange="updateSuperuser(${idx}, this.value)" />
+        <button type="button" onclick="removeSuperuser(${idx})">✕</button>
+      </div>
+    `).join('');
+
+    const memberRows = memberEmails.map((val, idx) => `
+      <div class="repeat-row">
+        <input type="email" value="${val}" placeholder="kayttaja@yritys.fi" onchange="updateMember(${idx}, this.value)" />
+        <button type="button" onclick="removeMember(${idx})">✕</button>
+      </div>
+    `).join('');
+
+    app.innerHTML = `
+      <div class="form-section">
+        <h3 style="margin-top:0;">Uusi asiakkuus</h3>
+
+        <label>Asiakkuuden nimi</label>
+        <input type="text" id="orgName" placeholder="esim. KPMG" />
+
+        <label>Käyttöoikeuden laajuus</label>
+        <div class="radio-row">
+          <label><input type="radio" name="accessMode" value="restricted" checked onchange="toggleDomainField()" /> Vain listatut käyttäjät</label>
+          <label><input type="radio" name="accessMode" value="domain" onchange="toggleDomainField()" /> Koko domain</label>
+        </div>
+
+        <div id="domainFieldWrap" style="display:none;">
+          <label>Sähköpostin verkkotunnus</label>
+          <input type="text" id="emailDomain" placeholder="esim. kpmg.fi" />
+        </div>
+
+        <label>Pääkäyttäjät</label>
+        <div id="superuserRows">${superuserRows}</div>
+        <button type="button" class="add-btn" onclick="addSuperuser()">+ Lisää pääkäyttäjä</button>
+
+        <label>Muut listatut jäsenet (valinnainen)</label>
+        <div id="memberRows">${memberRows}</div>
+        <button type="button" class="add-btn" onclick="addMember()">+ Lisää jäsen</button>
+
+        <div style="margin-top:20px;">
+          <button class="secondary" onclick="renderList()">Peruuta</button>
+          <button onclick="submitOrganization()">Luo asiakkuus</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function toggleDomainField() {
+    const mode = document.querySelector('input[name="accessMode"]:checked').value;
+    document.getElementById('domainFieldWrap').style.display = mode === 'domain' ? 'block' : 'none';
+  }
+
+  function addSuperuser() { superuserEmails.push(''); renderCreateForm(); }
+  function removeSuperuser(idx) { superuserEmails.splice(idx, 1); if (superuserEmails.length === 0) superuserEmails = ['']; renderCreateForm(); }
+  function updateSuperuser(idx, val) { superuserEmails[idx] = val; }
+
+  function addMember() { memberEmails.push(''); renderCreateForm(); }
+  function removeMember(idx) { memberEmails.splice(idx, 1); if (memberEmails.length === 0) memberEmails = ['']; renderCreateForm(); }
+  function updateMember(idx, val) { memberEmails[idx] = val; }
+
+  async function submitOrganization() {
+    const name = document.getElementById('orgName').value.trim();
+    const accessMode = document.querySelector('input[name="accessMode"]:checked').value;
+    const emailDomain = accessMode === 'domain' ? document.getElementById('emailDomain').value.trim() : null;
+    const superusers = superuserEmails.map((e) => e.trim()).filter((e) => e !== '');
+    const members = memberEmails.map((e) => e.trim()).filter((e) => e !== '');
+
+    if (!name) { alert('Anna asiakkuuden nimi.'); return; }
+    if (superusers.length === 0) { alert('Vähintään yksi pääkäyttäjä vaaditaan.'); return; }
+    if (accessMode === 'domain' && !emailDomain) { alert('Anna sähköpostin verkkotunnus.'); return; }
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/create-organization`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ name, accessMode, emailDomain, superusers, members }),
+    });
+    const data = await res.json();
+
+    if (data.error) { alert('Virhe: ' + data.error); return; }
+
+    await loadOrganizations();
+  }
+
+  async function openOrganization(orgId) {
+    const org = organizations.find((o) => o.id === orgId);
+    if (!org) return;
+
+    const app = document.getElementById('app');
+    app.innerHTML = `
+      <a class="back" href="#" onclick="renderList(); return false;">&larr; Kaikki asiakkaat</a>
+      <h1 style="margin-top:10px;">${org.name}</h1>
+      <p class="sub">Pääkäyttäjät: ${org.members.filter((m) => m.role === 'superuser').map((m) => m.email).join(', ') || '–'}</p>
+      <h3>Projektit</h3>
+      <div id="orgProjects">Ladataan…</div>
+    `;
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/list-projects`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ organizationId: orgId }),
+    });
+    const data = await res.json();
+
+    const projList = document.getElementById('orgProjects');
+    if (data.error) {
+      projList.innerHTML = `<p class="empty-note">Virhe: ${data.error}</p>`;
+      return;
+    }
+    if (!data.projects || data.projects.length === 0) {
+      projList.innerHTML = '<p class="empty-note">Ei vielä yhtään projektia tälle asiakkuudelle.</p>';
+      return;
+    }
+
+    projList.innerHTML = data.projects.map((p) => `
+      <a class="project-card" href="/projekti.html?id=${p.id}">
+        <div class="name">${p.name}</div>
+        <div class="meta">Vastuuhenkilö: ${p.owner_email} · Luotu ${new Date(p.created_at).toLocaleDateString('fi-FI')}</div>
+      </a>
+    `).join('');
+  }
+
+  (async () => {
+    const ok = await ensureLoggedIn();
+    if (ok) loadOrganizations();
+  })();
+</script>
+
+</body>
+</html>
