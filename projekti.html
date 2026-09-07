@@ -14,6 +14,8 @@
   button:hover { background: #1D3559; }
   button:disabled { opacity: 0.4; cursor: default; }
   button.secondary { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; }
+  button.danger { background: #fff; color: #C0453A; border: 1px solid #C0453A; }
+  button.danger:hover { background: #FBE4E1; }
   .toolbar { margin: 16px 0 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
   .toolbar .fetched { font-size: 12px; color: #8A93A3; margin-left: 4px; }
   #inviteResult { margin: 10px 0 16px; font-size: 13px; word-break: break-all; }
@@ -91,9 +93,17 @@
   .blackout-row input[type=datetime-local] { padding: 5px; border: 1px solid #DBDFE5; border-radius: 6px; font-size: 12.5px; }
   .blackout-row .remove-x { color: #C0453A; background: none; border: none; cursor: pointer; padding: 0 4px; margin: 0; }
   .fully-hidden-row { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-top: 18px; }
+
+  .calendar-section { border: 1px solid #DBDFE5; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+  .calendar-section .ok-text { color: #1E6B3C; font-size: 13px; }
+  .calendar-section .warn-text { color: #C0453A; font-size: 13px; font-weight: 600; }
+  .calendar-section .meta { color: #8A93A3; font-size: 12px; margin-top: 4px; }
+
+  .danger-zone { border-top: 1px solid #EEF1F4; margin-top: 18px; padding-top: 14px; }
 </style>
 </head>
 <body>
+
 <button class="secondary" style="float:right;" onclick="logout()">Kirjaudu ulos</button>
 <a class="back" href="/projektit.html">&larr; Kaikki projektit</a>
 <h1 id="projectName">Ladataan projektia…</h1>
@@ -188,11 +198,15 @@
   const TIMELINE_PX = 24 * HOUR_PX;
   const WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
 
+  const CLIENT_ID = "54f922c6-aa24-44b4-9305-f28964c09f96";
+  const CALENDAR_REDIRECT_URI = "https://nrrhvbxvkizvkcwwglck.supabase.co/functions/v1/auth-callback";
+
   let currentAccessToken = null;
   let currentUserEmail = null;
   let latestStatus = null;
   let selectedDateStr = null;
   let settingsState = null;
+  let expiredPopupShown = false;
   const selectedParticipantIds = new Set();
 
   async function ensureLoggedIn() {
@@ -205,18 +219,17 @@
     return true;
   }
 
-async function logout() {
-  await client.auth.signOut();
-  window.location.href = '/login.html';
-}
-
-  
   function authHeaders() {
     return {
       'Content-Type': 'application/json',
       'apikey': ANON_KEY,
       'Authorization': 'Bearer ' + currentAccessToken,
     };
+  }
+
+  async function logout() {
+    await client.auth.signOut();
+    window.location.href = '/login.html';
   }
 
   function todayDateStr() {
@@ -315,6 +328,17 @@ async function logout() {
     renderAll();
   }
 
+  function startCalendarAuthForParticipant(participantId) {
+    const authUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
+    authUrl.searchParams.set('client_id', CLIENT_ID);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('redirect_uri', CALENDAR_REDIRECT_URI);
+    authUrl.searchParams.set('response_mode', 'query');
+    authUrl.searchParams.set('scope', 'User.Read Calendars.Read offline_access');
+    authUrl.searchParams.set('state', participantId);
+    window.location.href = authUrl.toString();
+  }
+
   async function loadStatus() {
     if (!PROJECT_ID) {
       document.getElementById('projectName').textContent = 'Virhe: projektin id puuttuu osoitteesta';
@@ -342,6 +366,27 @@ async function logout() {
     }
 
     renderAll();
+    checkExpiredCalendar();
+  }
+
+  function checkExpiredCalendar() {
+    if (expiredPopupShown || !latestStatus) return;
+    const mine = latestStatus.participants.find((p) => p.email.toLowerCase() === currentUserEmail);
+    if (mine && mine.status === 'expired') {
+      expiredPopupShown = true;
+      document.getElementById('modalHost').innerHTML = `
+        <div class="modal-overlay">
+          <div class="modal">
+            <h3>Kalenterivaltuutus vanhentunut</h3>
+            <p class="sub">Projektin <strong>${latestStatus.project.name}</strong> Microsoft-valtuutus on vanhentunut. Liitä kalenteri sovellukseen alta.</p>
+            <div class="actions">
+              <button class="secondary" onclick="closeModal()">Sulje</button>
+              <button onclick="startCalendarAuthForParticipant('${mine.id}')">Liitä kalenteri</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
   }
 
   function renderAll() {
@@ -638,11 +683,9 @@ async function logout() {
     openGroupDetail(groupId);
   }
 
-  // ---- Näkyvyysasetukset ----
+  // ---- Näkyvyysasetukset + kalenterivaltuutuksen hallinta + projektista poistuminen ----
 
   function isoToDatetimeLocal(iso) {
-    // Otetaan UTC-komponentit suoraan merkkijonosta ilman aikavyöhykemuunnosta
-    // (tietoinen yksinkertaistus, ks. to-do-lista).
     return iso.slice(0, 16);
   }
 
@@ -664,26 +707,79 @@ async function logout() {
     }
 
     settingsState = {
+      participantId: data.participantId,
+      calendarStatus: data.calendarStatus,
+      tokenUpdatedAt: data.tokenUpdatedAt,
       fullyHidden: !!data.fullyHidden,
       windowsByDay: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] },
       blackouts: [],
     };
 
     (data.windows || []).forEach((w) => {
-      settingsState.windowsByDay[w.weekday].push({
-        start: w.start_time.slice(0, 5),
-        end: w.end_time.slice(0, 5),
-      });
+      settingsState.windowsByDay[w.weekday].push({ start: w.start_time.slice(0, 5), end: w.end_time.slice(0, 5) });
     });
-
     (data.blackouts || []).forEach((b) => {
-      settingsState.blackouts.push({
-        startAt: isoToDatetimeLocal(b.start_at),
-        endAt: isoToDatetimeLocal(b.end_at),
-      });
+      settingsState.blackouts.push({ startAt: isoToDatetimeLocal(b.start_at), endAt: isoToDatetimeLocal(b.end_at) });
     });
 
     renderSettingsModal();
+  }
+
+  function calendarSectionHtml() {
+    const s = settingsState;
+    if (s.calendarStatus === 'authorized') {
+      const updated = s.tokenUpdatedAt ? new Date(s.tokenUpdatedAt).toLocaleString('fi-FI') : '–';
+      return `
+        <div class="calendar-section">
+          <p class="ok-text">✓ Kalenteri on valtuutettu.</p>
+          <p class="meta">Päivitetty viimeksi: ${updated}</p>
+          <button class="danger" type="button" onclick="revokeCalendarAuth()">Poista valtuutus</button>
+        </div>
+      `;
+    }
+    if (s.calendarStatus === 'expired') {
+      return `
+        <div class="calendar-section">
+          <p class="warn-text">Microsoft-valtuutus vanhentunut. Hae uudestaan.</p>
+          <button type="button" onclick="startCalendarAuthForParticipant('${s.participantId}')">Hae uudestaan</button>
+        </div>
+      `;
+    }
+    return `
+      <div class="calendar-section">
+        <p class="empty-note">Kalenteria ei ole vielä valtuutettu.</p>
+        <button type="button" onclick="startCalendarAuthForParticipant('${s.participantId}')">Anna lupa nähdä kalenterisi saatavilla/kiireinen ajat</button>
+      </div>
+    `;
+  }
+
+  async function revokeCalendarAuth() {
+    if (!confirm('Poistetaanko kalenterivaltuutus? Muut eivät voi enää nähdä aikataulujasi tässä projektissa, ennen kuin annat luvan uudelleen.')) return;
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/revoke-calendar-authorization`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ projectId: PROJECT_ID }),
+    });
+    const data = await res.json();
+    if (data.error) { alert('Virhe: ' + data.error); return; }
+
+    closeModal();
+    loadStatus();
+  }
+
+  async function leaveProjectConfirm() {
+    if (!confirm('Haluatko varmasti poistua tästä projektista? Tätä ei voi perua.')) return;
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/leave-project`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ projectId: PROJECT_ID }),
+    });
+    const data = await res.json();
+    if (data.error) { alert('Virhe: ' + data.error); return; }
+
+    window.location.href = '/projektit.html';
   }
 
   function toggleSettingsDay(day, checked) {
@@ -764,6 +860,8 @@ async function logout() {
         <div class="modal settings-modal">
           <h3>Näkyvyysasetukset</h3>
 
+          ${calendarSectionHtml()}
+
           <label style="margin-top:0;">Näytä kalenterini muille näinä ajankohtina</label>
           <p class="empty-note" style="margin-top:-2px;">Jos et aktivoi yhtään päivää, kalenterisi näkyy muille aina.</p>
           ${daysHtml}
@@ -776,11 +874,14 @@ async function logout() {
             <input type="checkbox" ${settingsState.fullyHidden ? 'checked' : ''} onchange="settingsState.fullyHidden = this.checked" />
             Rajoita kalenterini näkyminen projektille
           </label>
-          <p class="empty-note" style="margin-top:2px;">Kun päällä, muut eivät näe kalenteriasi lainkaan — sinä näet silti muiden ajat.</p>
 
           <div class="actions">
             <button class="secondary" onclick="closeModal()">Peruuta</button>
             <button onclick="saveSettingsSubmit()">Tallenna</button>
+          </div>
+
+          <div class="danger-zone">
+            <button class="danger" type="button" onclick="leaveProjectConfirm()">Poistu projektista</button>
           </div>
         </div>
       </div>
