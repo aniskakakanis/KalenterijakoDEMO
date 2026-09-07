@@ -34,9 +34,11 @@
   .dual-pane { display: flex; }
   .names-col { width: 168px; flex: 0 0 168px; }
   .timeline-col { flex: 1; overflow-x: auto; overflow-y: hidden; }
+  .timeline-col.follower { overflow-x: hidden; }
 
   .header-spacer { height: 18px; }
-  .ruler-cell { width: 1920px; height: 18px; display: flex; justify-content: space-between; font-size: 10px; color: #8A93A3; }
+  .ruler-cell { width: 9600px; height: 18px; position: relative; }
+  .day-label { position: absolute; top: 0; height: 16px; font-size: 10px; color: #8A93A3; border-left: 1px solid #DBDFE5; padding-left: 4px; box-sizing: border-box; }
 
   .name-row, .timeline-row { height: 34px; display: flex; align-items: center; }
   .name-row + .name-row, .timeline-row + .timeline-row { border-top: 1px solid #EEF1F4; }
@@ -47,15 +49,16 @@
   .name-row.clickable { cursor: pointer; }
   .name-row.clickable:hover .email { text-decoration: underline; }
 
-  .timeline-row { width: 1920px; }
+  .timeline-row { width: 9600px; position: relative; }
   .timeline-row.clickable { cursor: pointer; }
-  .timeline-cell { width: 1920px; flex: 0 0 1920px; position: relative; height: 24px; background: #EEF1F4; border-radius: 6px; border: 1px solid #DBDFE5; }
-  .busy-block { position: absolute; top: 2px; bottom: 2px; background: #E8938A; border-radius: 3px; }
-  .now-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #2A4B7C; z-index: 2; }
-  .no-data { color: #8A93A3; font-size: 12.5px; width: 1920px; }
+  .timeline-cell { width: 9600px; position: relative; height: 24px; }
+  .day-bg { position: absolute; top: 0; bottom: 0; background: #EEF1F4; border-radius: 6px; border: 1px solid #DBDFE5; box-sizing: border-box; }
+  .busy-block { position: absolute; top: 2px; bottom: 2px; background: #E8938A; border-radius: 3px; z-index: 1; }
+  .now-line { position: absolute; top: -20px; bottom: 0; width: 2px; background: #2A4B7C; z-index: 2; }
+  .no-data { color: #8A93A3; font-size: 12.5px; width: 9600px; }
 
   .names-rows { overflow: hidden; }
-  .timeline-rows { overflow-y: auto; overflow-x: hidden; width: 1920px; }
+  .timeline-rows { overflow-y: auto; overflow-x: hidden; width: 9600px; }
   .rows-people { max-height: 238px; }
   .rows-groups { max-height: 136px; }
 
@@ -122,18 +125,14 @@
   <span>Näytettävä päivä</span>
   <input type="date" id="viewDate" onchange="onViewDateChange()" />
   <button type="button" class="secondary today-btn" onclick="jumpToToday()">Tänään</button>
+  <span style="margin-left:12px;">Siirry ajankohtaan</span>
+  <input type="time" id="jumpTime" step="1800" />
+  <button type="button" class="secondary today-btn" onclick="jumpToTime()">Siirry</button>
 </div>
 
 <div class="board-block">
   <div class="board">
-    <div class="board-topbar">
-      <h3 style="margin:0;">Projektin henkilöt</h3>
-      <div class="jump">
-        <span>Siirry ajankohtaan</span>
-        <input type="time" id="jumpTime" step="1800" />
-        <button type="button" onclick="jumpTo('peopleTimelineCol', document.getElementById('jumpTime').value)">Siirry</button>
-      </div>
-    </div>
+    <h3>Projektin henkilöt</h3>
     <div class="dual-pane">
       <div class="names-col">
         <div class="header-spacer"></div>
@@ -141,7 +140,7 @@
         <div class="names-rows rows-people" id="peopleNamesRows"></div>
       </div>
       <div class="timeline-col" id="peopleTimelineCol">
-        <div class="ruler-cell"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+        <div class="ruler-cell" id="peopleRuler"></div>
         <div class="timeline-row" id="summaryTimelineRow"></div>
         <div class="timeline-rows rows-people" id="peopleTimelineRows"></div>
       </div>
@@ -157,8 +156,8 @@
         <div class="header-spacer"></div>
         <div class="names-rows rows-groups" id="ownGroupNames"></div>
       </div>
-      <div class="timeline-col" id="ownGroupsTimelineCol">
-        <div class="ruler-cell"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+      <div class="timeline-col follower" id="ownGroupsTimelineCol">
+        <div class="ruler-cell" id="ownGroupsRuler"></div>
         <div class="timeline-rows rows-groups" id="ownGroupTimelines"></div>
       </div>
     </div>
@@ -174,8 +173,8 @@
         <div class="header-spacer"></div>
         <div class="names-rows rows-groups" id="projectGroupNames"></div>
       </div>
-      <div class="timeline-col" id="projectGroupsTimelineCol">
-        <div class="ruler-cell"><span>0</span><span>3</span><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>24</span></div>
+      <div class="timeline-col follower" id="projectGroupsTimelineCol">
+        <div class="ruler-cell" id="projectGroupsRuler"></div>
         <div class="timeline-rows rows-groups" id="projectGroupTimelines"></div>
       </div>
     </div>
@@ -195,7 +194,11 @@
   const client = supabase.createClient(SUPABASE_URL, ANON_KEY);
 
   const HOUR_PX = 80;
-  const TIMELINE_PX = 24 * HOUR_PX;
+  const PX_PER_MIN = HOUR_PX / 60;
+  const DAY_PX = 24 * HOUR_PX; // 1920
+  const BUFFER_DAYS = 5;
+  const TOTAL_PX = BUFFER_DAYS * DAY_PX; // 9600
+  const HOME_SCROLL = 1 * DAY_PX; // 1/5 vasemmalta
   const WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
 
   const CLIENT_ID = "54f922c6-aa24-44b4-9305-f28964c09f96";
@@ -204,9 +207,10 @@
   let currentAccessToken = null;
   let currentUserEmail = null;
   let latestStatus = null;
-  let selectedDateStr = null;
+  let anchorDateStr = null; // puskurin "keskuspäivä" (indeksi 1 viidestä)
   let settingsState = null;
   let expiredPopupShown = false;
+  let paging = false;
   const selectedParticipantIds = new Set();
 
   async function ensureLoggedIn() {
@@ -232,28 +236,68 @@
     window.location.href = '/login.html';
   }
 
-  function todayDateStr() {
-    const d = new Date();
+  function toDateStr(d) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function todayDateStr() {
+    return toDateStr(new Date());
+  }
+
+  function addDaysToStr(dateStr, n) {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + n);
+    return toDateStr(d);
+  }
+
+  // Puskuri = 5 päivää: [ankkuri-1, ankkuri, ankkuri+1, ankkuri+2, ankkuri+3]
+  function bufferDates() {
+    const arr = [];
+    for (let i = -1; i <= 3; i++) arr.push(addDaysToStr(anchorDateStr, i));
+    return arr;
   }
 
   function itemDateStr(item) {
     const d = new Date(item.start.dateTime + 'Z');
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    return toDateStr(d);
   }
 
-  function busyBlocksHtml(items, dateStr) {
+  function rulerHtml() {
+    const dates = bufferDates();
+    let html = '';
+    dates.forEach((dateStr, i) => {
+      const d = new Date(dateStr + 'T00:00:00');
+      const label = WEEKDAY_LABELS[(d.getDay() + 6) % 7] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '.';
+      html += `<div class="day-label" style="left:${i * DAY_PX}px; width:${DAY_PX}px;">${label}</div>`;
+    });
+    return html;
+  }
+
+  function dayBackgroundsHtml() {
+    let html = '';
+    for (let i = 0; i < BUFFER_DAYS; i++) {
+      html += `<div class="day-bg" style="left:${i * DAY_PX + 1}px; width:${DAY_PX - 2}px;"></div>`;
+    }
+    return html;
+  }
+
+  function busyBlocksHtml(items) {
+    const dates = bufferDates();
     let html = '';
     (items || []).forEach((item) => {
       if (item.status !== 'busy') return;
-      if (itemDateStr(item) !== dateStr) return;
+      const dateStr = itemDateStr(item);
+      const dayIdx = dates.indexOf(dateStr);
+      if (dayIdx === -1) return;
+
       const start = new Date(item.start.dateTime + 'Z');
       const end = new Date(item.end.dateTime + 'Z');
       const startMin = start.getHours() * 60 + start.getMinutes();
       let endMin = end.getHours() * 60 + end.getMinutes();
       if (endMin <= startMin) endMin = 1440;
-      const leftPx = (startMin / 1440) * TIMELINE_PX;
-      const widthPx = ((endMin - startMin) / 1440) * TIMELINE_PX;
+
+      const leftPx = dayIdx * DAY_PX + startMin * PX_PER_MIN;
+      const widthPx = (endMin - startMin) * PX_PER_MIN;
       const startLabel = start.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
       const endLabel = end.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
       html += `<div class="busy-block" style="left:${leftPx}px; width:${widthPx}px;" title="Varattu ${startLabel}–${endLabel}"></div>`;
@@ -261,16 +305,18 @@
     return html;
   }
 
-  function nowLineHtml(dateStr) {
-    if (dateStr !== todayDateStr()) return '';
+  function nowLineHtml() {
+    const dates = bufferDates();
+    const todayIdx = dates.indexOf(todayDateStr());
+    if (todayIdx === -1) return '';
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
-    const leftPx = (nowMin / 1440) * TIMELINE_PX;
+    const leftPx = todayIdx * DAY_PX + nowMin * PX_PER_MIN;
     return `<div class="now-line" style="left:${leftPx}px;"></div>`;
   }
 
-  function timelineCellHtml(items, dateStr) {
-    return `<div class="timeline-cell">${busyBlocksHtml(items, dateStr)}${nowLineHtml(dateStr)}</div>`;
+  function timelineCellHtml(items) {
+    return `<div class="timeline-cell">${dayBackgroundsHtml()}${busyBlocksHtml(items)}${nowLineHtml()}</div>`;
   }
 
   function isAdminForProject(status) {
@@ -293,16 +339,40 @@
     });
   }
 
-  function jumpTo(colId, timeValue) {
-    if (!timeValue) return;
-    const [h, m] = timeValue.split(':').map(Number);
-    const minutes = h * 60 + m;
-    document.getElementById(colId).scrollLeft = (minutes / 60) * HOUR_PX;
+  function mirrorHorizontalScroll(scrollLeft) {
+    document.getElementById('ownGroupsTimelineCol').scrollLeft = scrollLeft;
+    document.getElementById('projectGroupsTimelineCol').scrollLeft = scrollLeft;
   }
 
-  function setDefaultScroll(colId) {
-    const el = document.getElementById(colId);
-    if (el) el.scrollLeft = 9 * HOUR_PX;
+  function setHomeScroll() {
+    const master = document.getElementById('peopleTimelineCol');
+    master.scrollLeft = HOME_SCROLL;
+    mirrorHorizontalScroll(HOME_SCROLL);
+  }
+
+  function pageBuffer(direction) {
+    anchorDateStr = addDaysToStr(anchorDateStr, direction * 4);
+    document.getElementById('viewDate').value = anchorDateStr;
+    renderAll();
+    setHomeScroll();
+  }
+
+  function attachMasterPaging() {
+    const master = document.getElementById('peopleTimelineCol');
+    master.addEventListener('scroll', () => {
+      mirrorHorizontalScroll(master.scrollLeft);
+      if (paging) return;
+      const max = master.scrollWidth - master.clientWidth;
+      if (master.scrollLeft >= max - 4) {
+        paging = true;
+        pageBuffer(1);
+        setTimeout(() => { paging = false; }, 300);
+      } else if (master.scrollLeft <= 0) {
+        paging = true;
+        pageBuffer(-1);
+        setTimeout(() => { paging = false; }, 300);
+      }
+    });
   }
 
   function defaultJumpTimeValue() {
@@ -318,59 +388,26 @@
   function onViewDateChange() {
     const val = document.getElementById('viewDate').value;
     if (!val) return;
-    selectedDateStr = val;
+    anchorDateStr = val;
     renderAll();
+    setHomeScroll();
   }
 
   function jumpToToday() {
-    selectedDateStr = todayDateStr();
-    document.getElementById('viewDate').value = selectedDateStr;
+    anchorDateStr = todayDateStr();
+    document.getElementById('viewDate').value = anchorDateStr;
     renderAll();
+    setHomeScroll();
   }
 
-  // ---- Päivä-kerrallaan-sivutus (Outlook-tyylinen scheduler-scrollaus) ----
-
-  function goToRelativeDay(delta) {
-    const d = new Date(selectedDateStr + 'T00:00:00');
-    d.setDate(d.getDate() + delta);
-    selectedDateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    document.getElementById('viewDate').value = selectedDateStr;
-    renderAll();
-
-    // renderAll() palauttaa oletuksena vierityksen klo 9:00 kohdalle joka
-    // kerta — ohitetaan se juuri tässä, jotta scroller asettuu oikeaan
-    // reunaan riippuen vieritettiinkö eteen- vai taaksepäin.
-    ['peopleTimelineCol', 'ownGroupsTimelineCol', 'projectGroupsTimelineCol'].forEach((id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.scrollLeft = delta > 0 ? 0 : Math.max(0, el.scrollWidth - el.clientWidth - 2);
-    });
-  }
-
-  function attachDayPaging(colId) {
-    const el = document.getElementById(colId);
-    if (!el) return;
-    let paging = false;
-
-    el.addEventListener('scroll', () => {
-      if (paging) return;
-      const max = el.scrollWidth - el.clientWidth;
-      if (el.scrollLeft >= max - 4) {
-        paging = true;
-        goToRelativeDay(1);
-        setTimeout(() => { paging = false; }, 300);
-      }
-    });
-
-    el.addEventListener('wheel', (e) => {
-      if (paging) return;
-      if (el.scrollLeft <= 0 && e.deltaX < 0) {
-        paging = true;
-        e.preventDefault();
-        goToRelativeDay(-1);
-        setTimeout(() => { paging = false; }, 300);
-      }
-    }, { passive: false });
+  function jumpToTime() {
+    const timeVal = document.getElementById('jumpTime').value;
+    if (!timeVal) return;
+    const [h, m] = timeVal.split(':').map(Number);
+    const leftPx = HOME_SCROLL + (h * 60 + m) * PX_PER_MIN;
+    const master = document.getElementById('peopleTimelineCol');
+    master.scrollLeft = leftPx;
+    mirrorHorizontalScroll(leftPx);
   }
 
   function startCalendarAuthForParticipant(participantId) {
@@ -405,9 +442,10 @@
     latestStatus = data;
     currentUserEmail = data.currentUserEmail;
 
-    if (!selectedDateStr) {
-      selectedDateStr = todayDateStr();
-      document.getElementById('viewDate').value = selectedDateStr;
+    if (!anchorDateStr) {
+      anchorDateStr = todayDateStr();
+      document.getElementById('viewDate').value = anchorDateStr;
+      document.getElementById('jumpTime').value = defaultJumpTimeValue();
     }
 
     renderAll();
@@ -441,6 +479,10 @@
     document.getElementById('projectName').textContent = data.project.name;
     document.getElementById('projectOwner').textContent = 'Vastuuhenkilö: ' + data.project.owner_email;
 
+    document.getElementById('peopleRuler').innerHTML = rulerHtml();
+    document.getElementById('ownGroupsRuler').innerHTML = rulerHtml();
+    document.getElementById('projectGroupsRuler').innerHTML = rulerHtml();
+
     const authorized = data.participants.filter((p) => p.status === 'authorized' && p.fetchedAt);
     const fetchedEl = document.getElementById('fetchedSummary');
     fetchedEl.textContent = authorized.length === 0
@@ -449,7 +491,7 @@
 
     const allBusy = [];
     authorized.forEach((p) => { if (p.scheduleItems) allBusy.push(...p.scheduleItems); });
-    document.getElementById('summaryTimelineRow').innerHTML = timelineCellHtml(allBusy, selectedDateStr);
+    document.getElementById('summaryTimelineRow').innerHTML = timelineCellHtml(allBusy);
 
     const namesEl = document.getElementById('peopleNamesRows');
     const timelinesEl = document.getElementById('peopleTimelineRows');
@@ -470,7 +512,7 @@
       tRow.className = 'timeline-row';
       tRow.innerHTML = p.scheduleItems === null
         ? '<div class="no-data">Ei vielä haettua aikataulua</div>'
-        : timelineCellHtml(p.scheduleItems, selectedDateStr);
+        : timelineCellHtml(p.scheduleItems);
       timelinesEl.appendChild(tRow);
     });
 
@@ -479,11 +521,6 @@
 
     renderGroupBoard(ownGroups, 'ownGroupNames', 'ownGroupTimelines', 'ownGroupsEmpty', 'Ei vielä omia ryhmiä.');
     renderGroupBoard(projectGroups, 'projectGroupNames', 'projectGroupTimelines', 'projectGroupsEmpty', 'Ei vielä projektin ryhmiä.');
-
-    document.getElementById('jumpTime').value = defaultJumpTimeValue();
-    setDefaultScroll('peopleTimelineCol');
-    setDefaultScroll('ownGroupsTimelineCol');
-    setDefaultScroll('projectGroupsTimelineCol');
   }
 
   function groupMergedItems(g) {
@@ -515,7 +552,7 @@
       const tRow = document.createElement('div');
       tRow.className = 'timeline-row clickable';
       tRow.onclick = () => openGroupDetail(g.id);
-      tRow.innerHTML = timelineCellHtml(groupMergedItems(g), selectedDateStr);
+      tRow.innerHTML = timelineCellHtml(groupMergedItems(g));
       timelinesEl.appendChild(tRow);
     });
   }
@@ -970,13 +1007,14 @@
   linkVerticalScroll(document.getElementById('ownGroupNames'), document.getElementById('ownGroupTimelines'));
   linkVerticalScroll(document.getElementById('projectGroupNames'), document.getElementById('projectGroupTimelines'));
 
-  attachDayPaging('peopleTimelineCol');
-  attachDayPaging('ownGroupsTimelineCol');
-  attachDayPaging('projectGroupsTimelineCol');
+  attachMasterPaging();
 
   (async () => {
     const ok = await ensureLoggedIn();
-    if (ok) loadStatus();
+    if (ok) {
+      await loadStatus();
+      setHomeScroll();
+    }
   })();
 </script>
 
