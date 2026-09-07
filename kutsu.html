@@ -104,6 +104,10 @@
 
     if (inviteInfo.needsRegistration) {
       renderRegistrationStep();
+    } else if (status === 'ok') {
+      // Ei ensimmäinen kerta, ja kalenterivaltuutus juuri onnistui —
+      // ohitetaan liittymisnäkymä ja mennään suoraan projektisivulle.
+      window.location.href = `/projekti.html?id=${inviteInfo.projectId}`;
     } else {
       renderProjectStep(status);
     }
