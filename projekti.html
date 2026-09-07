@@ -207,7 +207,7 @@
   let anchorDateStr = null; // puskurin "keskuspäivä" (indeksi 1 viidestä)
   let settingsState = null;
   let expiredPopupShown = false;
-  let paging = false;
+  let scrollEndTimer = null;
   const selectedParticipantIds = new Set();
 
   async function ensureLoggedIn() {
@@ -341,21 +341,8 @@
     document.getElementById('projectGroupsTimelineCol').scrollLeft = scrollLeft;
   }
 
-  // Trackpad-liu'utus (momentum) jatkuu vielä hetken irrottamisen jälkeen ja
-  // "korjaisi" scrollLeft-arvomme takaisin kesken palautuksen, jolloin näkyy
-  // vain vilahdus eikä todellista paluuta. Vaihtamalla overflow pois päältä
-  // ja heti takaisin päälle pakotamme selaimen katkaisemaan käynnissä olevan
-  // liu'utuksen ennen kuin asetamme scrollLeft-arvon.
-  function stopMomentum(el) {
-    el.style.overflowX = 'hidden';
-    void el.offsetHeight;
-    el.style.overflowX = 'auto';
-  }
-
   function setHomeScroll() {
-    const master = document.getElementById('peopleTimelineCol');
-    stopMomentum(master);
-    master.scrollLeft = HOME_SCROLL;
+    document.getElementById('peopleTimelineCol').scrollLeft = HOME_SCROLL;
     mirrorHorizontalScroll(HOME_SCROLL);
   }
 
@@ -366,23 +353,22 @@
     setHomeScroll();
   }
 
+  // Odotetaan että vieritys (myös trackpadin liu'utus) on aidosti loppunut,
+  // ennen kuin päätellään ollaanko reunassa ja tehdään sivutus — sama
+  // periaate kuin Outlookin scheduler-näkymässä.
   function attachMasterPaging() {
     const master = document.getElementById('peopleTimelineCol');
     master.addEventListener('scroll', () => {
       mirrorHorizontalScroll(master.scrollLeft);
-      if (paging) return;
-      const max = master.scrollWidth - master.clientWidth;
-      if (master.scrollLeft >= max - 4) {
-        paging = true;
-        stopMomentum(master);
-        pageBuffer(1);
-        setTimeout(() => { paging = false; }, 500);
-      } else if (master.scrollLeft <= 0) {
-        paging = true;
-        stopMomentum(master);
-        pageBuffer(-1);
-        setTimeout(() => { paging = false; }, 500);
-      }
+      clearTimeout(scrollEndTimer);
+      scrollEndTimer = setTimeout(() => {
+        const max = master.scrollWidth - master.clientWidth;
+        if (master.scrollLeft >= max - 4) {
+          pageBuffer(1);
+        } else if (master.scrollLeft <= 0) {
+          pageBuffer(-1);
+        }
+      }, 120);
     });
   }
 
@@ -416,9 +402,7 @@
     if (!timeVal) return;
     const [h, m] = timeVal.split(':').map(Number);
     const leftPx = HOME_SCROLL + (h * 60 + m) * PX_PER_MIN;
-    const master = document.getElementById('peopleTimelineCol');
-    stopMomentum(master);
-    master.scrollLeft = leftPx;
+    document.getElementById('peopleTimelineCol').scrollLeft = leftPx;
     mirrorHorizontalScroll(leftPx);
   }
 
