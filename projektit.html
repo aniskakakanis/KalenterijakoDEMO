@@ -10,16 +10,19 @@
   button { background: #2A4B7C; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-bottom: 20px; }
   button:hover { background: #1D3559; }
   button.secondary { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; }
+  a.back { font-size: 13px; color: #2A4B7C; text-decoration: none; }
   .card { background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; cursor: pointer; text-decoration: none; display: block; color: inherit; }
   .card:hover { border-color: #2A4B7C; }
   .card .name { font-weight: 600; font-size: 15px; }
   .card .meta { color: #8A93A3; font-size: 12px; margin-top: 4px; }
   #empty { color: #586174; font-size: 14px; }
+  #adminLinkWrap { margin-bottom: 10px; }
 </style>
 </head>
 <body>
 <button class="secondary" style="float:right;" onclick="logout()">Kirjaudu ulos</button>
 <h1>Omat projektit</h1>
+<div id="adminLinkWrap"></div>
 <a class="back" href="/uusiprojekti.html" style="display:inline-block; background:#2A4B7C; color:#fff; padding:9px 16px; border-radius:8px; font-size:14px; text-decoration:none; margin-bottom:20px;">+ Uusi projekti</a>
 <div id="list"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -58,6 +61,12 @@
       headers: authHeaders(),
     });
     const data = await res.json();
+
+    if (data.isSuperadmin) {
+      document.getElementById('adminLinkWrap').innerHTML =
+        '<a class="back" href="/asiakkaat.html">&rarr; Asiakkaat</a>';
+    }
+
     const list = document.getElementById('list');
     list.innerHTML = '';
     if (!data.projects || data.projects.length === 0) {
