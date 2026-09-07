@@ -20,16 +20,13 @@
   .toolbar .fetched { font-size: 12px; color: #8A93A3; margin-left: 4px; }
   #inviteResult { margin: 10px 0 16px; font-size: 13px; word-break: break-all; }
 
-  .date-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; font-size: 13px; color: #586174; background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 10px 14px; }
-  .date-bar input[type=date] { border: 1px solid #DBDFE5; border-radius: 6px; padding: 5px 7px; font-size: 13px; }
+  .date-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; font-size: 13px; color: #586174; background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 10px 14px; flex-wrap: wrap; }
+  .date-bar input[type=date], .date-bar input[type=time] { border: 1px solid #DBDFE5; border-radius: 6px; padding: 5px 7px; font-size: 13px; }
   .date-bar .today-btn { padding: 5px 10px; font-size: 12px; margin: 0; }
 
   .board-block { margin-bottom: 22px; }
   .board { background: #fff; border: 1px solid #DBDFE5; border-radius: 12px; padding: 14px 16px; }
   .board-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .jump { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #586174; }
-  .jump input[type=time] { border: 1px solid #DBDFE5; border-radius: 6px; padding: 3px 5px; font-size: 12px; }
-  .jump button { padding: 4px 10px; font-size: 12px; margin: 0; }
 
   .dual-pane { display: flex; }
   .names-col { width: 168px; flex: 0 0 168px; }
@@ -344,8 +341,20 @@
     document.getElementById('projectGroupsTimelineCol').scrollLeft = scrollLeft;
   }
 
+  // Trackpad-liu'utus (momentum) jatkuu vielä hetken irrottamisen jälkeen ja
+  // "korjaisi" scrollLeft-arvomme takaisin kesken palautuksen, jolloin näkyy
+  // vain vilahdus eikä todellista paluuta. Vaihtamalla overflow pois päältä
+  // ja heti takaisin päälle pakotamme selaimen katkaisemaan käynnissä olevan
+  // liu'utuksen ennen kuin asetamme scrollLeft-arvon.
+  function stopMomentum(el) {
+    el.style.overflowX = 'hidden';
+    void el.offsetHeight;
+    el.style.overflowX = 'auto';
+  }
+
   function setHomeScroll() {
     const master = document.getElementById('peopleTimelineCol');
+    stopMomentum(master);
     master.scrollLeft = HOME_SCROLL;
     mirrorHorizontalScroll(HOME_SCROLL);
   }
@@ -365,12 +374,14 @@
       const max = master.scrollWidth - master.clientWidth;
       if (master.scrollLeft >= max - 4) {
         paging = true;
+        stopMomentum(master);
         pageBuffer(1);
-        setTimeout(() => { paging = false; }, 300);
+        setTimeout(() => { paging = false; }, 500);
       } else if (master.scrollLeft <= 0) {
         paging = true;
+        stopMomentum(master);
         pageBuffer(-1);
-        setTimeout(() => { paging = false; }, 300);
+        setTimeout(() => { paging = false; }, 500);
       }
     });
   }
@@ -406,6 +417,7 @@
     const [h, m] = timeVal.split(':').map(Number);
     const leftPx = HOME_SCROLL + (h * 60 + m) * PX_PER_MIN;
     const master = document.getElementById('peopleTimelineCol');
+    stopMomentum(master);
     master.scrollLeft = leftPx;
     mirrorHorizontalScroll(leftPx);
   }
