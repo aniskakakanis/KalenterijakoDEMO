@@ -356,21 +356,34 @@
   // Odotetaan että vieritys (myös trackpadin liu'utus) on aidosti loppunut,
   // ennen kuin päätellään ollaanko reunassa ja tehdään sivutus — sama
   // periaate kuin Outlookin scheduler-näkymässä.
-  function attachMasterPaging() {
-    const master = document.getElementById('peopleTimelineCol');
-    master.addEventListener('scroll', () => {
-      mirrorHorizontalScroll(master.scrollLeft);
-      clearTimeout(scrollEndTimer);
-      scrollEndTimer = setTimeout(() => {
-        const max = master.scrollWidth - master.clientWidth;
-        if (master.scrollLeft >= max - 4) {
-          pageBuffer(1);
-        } else if (master.scrollLeft <= 0) {
-          pageBuffer(-1);
-        }
-      }, 120);
-    });
-  }
+let canPage = true;
+
+function attachMasterPaging() {
+  const master = document.getElementById('peopleTimelineCol');
+
+  master.addEventListener('scroll', () => {
+    mirrorHorizontalScroll(master.scrollLeft);
+    clearTimeout(scrollEndTimer);
+    scrollEndTimer = setTimeout(() => {
+      if (!canPage) return;
+      const max = master.scrollWidth - master.clientWidth;
+      if (master.scrollLeft >= max - 4) {
+        canPage = false;
+        pageBuffer(1);
+      } else if (master.scrollLeft <= 0) {
+        canPage = false;
+        pageBuffer(-1);
+      }
+    }, 120);
+  });
+
+  // Sivutus sallitaan uudelleen vasta kun käyttäjä oikeasti vapauttaa
+  // kosketuksen (trackpad/hiiri) — estää toistuvan pompottelun, jos sormi
+  // jää paikalleen reunaan.
+  ['pointerup', 'mouseup', 'touchend'].forEach((evt) => {
+    window.addEventListener(evt, () => { canPage = true; });
+  });
+}
 
   function defaultJumpTimeValue() {
     const now = new Date();
