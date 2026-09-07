@@ -328,6 +328,51 @@
     renderAll();
   }
 
+  // ---- Päivä-kerrallaan-sivutus (Outlook-tyylinen scheduler-scrollaus) ----
+
+  function goToRelativeDay(delta) {
+    const d = new Date(selectedDateStr + 'T00:00:00');
+    d.setDate(d.getDate() + delta);
+    selectedDateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    document.getElementById('viewDate').value = selectedDateStr;
+    renderAll();
+
+    // renderAll() palauttaa oletuksena vierityksen klo 9:00 kohdalle joka
+    // kerta — ohitetaan se juuri tässä, jotta scroller asettuu oikeaan
+    // reunaan riippuen vieritettiinkö eteen- vai taaksepäin.
+    ['peopleTimelineCol', 'ownGroupsTimelineCol', 'projectGroupsTimelineCol'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.scrollLeft = delta > 0 ? 0 : Math.max(0, el.scrollWidth - el.clientWidth - 2);
+    });
+  }
+
+  function attachDayPaging(colId) {
+    const el = document.getElementById(colId);
+    if (!el) return;
+    let paging = false;
+
+    el.addEventListener('scroll', () => {
+      if (paging) return;
+      const max = el.scrollWidth - el.clientWidth;
+      if (el.scrollLeft >= max - 4) {
+        paging = true;
+        goToRelativeDay(1);
+        setTimeout(() => { paging = false; }, 300);
+      }
+    });
+
+    el.addEventListener('wheel', (e) => {
+      if (paging) return;
+      if (el.scrollLeft <= 0 && e.deltaX < 0) {
+        paging = true;
+        e.preventDefault();
+        goToRelativeDay(-1);
+        setTimeout(() => { paging = false; }, 300);
+      }
+    }, { passive: false });
+  }
+
   function startCalendarAuthForParticipant(participantId) {
     const authUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
     authUrl.searchParams.set('client_id', CLIENT_ID);
@@ -924,6 +969,10 @@
   linkVerticalScroll(document.getElementById('peopleNamesRows'), document.getElementById('peopleTimelineRows'));
   linkVerticalScroll(document.getElementById('ownGroupNames'), document.getElementById('ownGroupTimelines'));
   linkVerticalScroll(document.getElementById('projectGroupNames'), document.getElementById('projectGroupTimelines'));
+
+  attachDayPaging('peopleTimelineCol');
+  attachDayPaging('ownGroupsTimelineCol');
+  attachDayPaging('projectGroupsTimelineCol');
 
   (async () => {
     const ok = await ensureLoggedIn();
