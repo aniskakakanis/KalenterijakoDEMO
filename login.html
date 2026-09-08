@@ -37,6 +37,28 @@
   const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ycmh2Ynh2a2l6dmtjd3dnbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0NjU3NDAsImV4cCI6MjEwMzA0MTc0MH0.S_M4KyTt4E_UG0ue-T-h89L17yxJKkmb36ZzNRdQnLI";
   const client = supabase.createClient(SUPABASE_URL, ANON_KEY);
 
+  async function checkAccessAndRedirect() {
+    const { data: { session } } = await client.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/check-app-access`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': ANON_KEY,
+        'Authorization': 'Bearer ' + session.access_token,
+      },
+    });
+    const data = await res.json();
+
+    if (!data.authorized) {
+      await client.auth.signOut();
+      document.getElementById('status').textContent =
+        'Ei käyttöoikeutta tähän sovellukseen. Ota yhteyttä pääkäyttäjään, jos tämä on virhe.';
+      return;
+    }
+
+    window.location.href = '/projektit.html';
+  }
+
   async function login() {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
@@ -48,18 +70,25 @@
       return;
     }
 
-    window.location.href = '/projektit.html';
+    await checkAccessAndRedirect();
   }
 
-  function loginWithMicrosoft() {
+ function loginWithMicrosoft() {
     client.auth.signInWithOAuth({
       provider: 'azure',
       options: {
         scopes: 'email',
-        redirectTo: window.location.origin + '/projektit.html',
+        redirectTo: window.location.origin + '/login.html',
       },
     });
   }
+
+  (async () => {
+    const { data: { session } } = await client.auth.getSession();
+    if (session) {
+      await checkAccessAndRedirect();
+    }
+  })();
 </script>
 
 </body>
