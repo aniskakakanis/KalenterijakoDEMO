@@ -43,6 +43,7 @@
   .name-row input[type=checkbox] { flex: 0 0 auto; }
   .name-row .checkbox-spacer { width: 14px; flex: 0 0 14px; }
   .name-row .email { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .name-row .email.clickable { cursor: pointer; text-decoration: underline dotted; }
   .name-row.clickable { cursor: pointer; }
   .name-row.clickable:hover .email { text-decoration: underline; }
 
@@ -207,7 +208,6 @@
   let anchorDateStr = null; // puskurin "keskuspäivä" (indeksi 1 viidestä)
   let settingsState = null;
   let expiredPopupShown = false;
-
   const selectedParticipantIds = new Set();
 
   async function ensureLoggedIn() {
@@ -247,7 +247,6 @@
     return toDateStr(d);
   }
 
-  // Puskuri = 5 päivää: [ankkuri-1, ankkuri, ankkuri+1, ankkuri+2, ankkuri+3]
   function bufferDates() {
     const arr = [];
     for (let i = -1; i <= 3; i++) arr.push(addDaysToStr(anchorDateStr, i));
@@ -344,7 +343,6 @@
   function setHomeScroll() {
     document.getElementById('peopleTimelineCol').scrollLeft = HOME_SCROLL;
     mirrorHorizontalScroll(HOME_SCROLL);
-
   }
 
   function pageBuffer(direction) {
@@ -354,27 +352,22 @@
     setHomeScroll();
   }
 
-  // Odotetaan että vieritys on aidosti pysähtynyt (150ms hiljaisuus), ja
-  // sallitaan sivutus reunassa vain kerran per "vierailu" reunaan —
-  // "virittyminen" palautuu vasta kun scroller on liikkunut pois reunasta.
-  // Tämä toimii luotettavasti trackpadilla, hiirellä ja kosketuksella,
-  // eikä riipu mistään laitekohtaisesta "vapautus"-tapahtumasta.
   function attachMasterPaging() {
-  const master = document.getElementById('peopleTimelineCol');
+    const master = document.getElementById('peopleTimelineCol');
 
-  master.addEventListener('scroll', () => {
-    mirrorHorizontalScroll(master.scrollLeft);
-  });
+    master.addEventListener('scroll', () => {
+      mirrorHorizontalScroll(master.scrollLeft);
+    });
 
-  master.addEventListener('scrollend', () => {
-    const max = master.scrollWidth - master.clientWidth;
-    if (master.scrollLeft >= max - 4) {
-      pageBuffer(1);
-    } else if (master.scrollLeft <= 0) {
-      pageBuffer(-1);
-    }
-  });
-}
+    master.addEventListener('scrollend', () => {
+      const max = master.scrollWidth - master.clientWidth;
+      if (master.scrollLeft >= max - 4) {
+        pageBuffer(1);
+      } else if (master.scrollLeft <= 0) {
+        pageBuffer(-1);
+      }
+    });
+  }
 
   function defaultJumpTimeValue() {
     const now = new Date();
@@ -504,12 +497,13 @@
       const checked = selectedParticipantIds.has(p.id) ? 'checked' : '';
       nameRow.innerHTML = `
         <input type="checkbox" data-pid="${p.id}" ${checked} onchange="toggleParticipant('${p.id}', this.checked)" />
-        <span class="email">${nameLabelFor(p)}</span>
+        <span class="email clickable" onclick="openParticipantDetail('${p.id}')">${nameLabelFor(p)}</span>
       `;
       namesEl.appendChild(nameRow);
 
       const tRow = document.createElement('div');
-      tRow.className = 'timeline-row';
+      tRow.className = 'timeline-row clickable';
+      tRow.onclick = () => openParticipantDetail(p.id);
       tRow.innerHTML = p.scheduleItems === null
         ? '<div class="no-data">Ei vielä haettua aikataulua</div>'
         : timelineCellHtml(p.scheduleItems);
@@ -763,6 +757,35 @@
     }
     await loadStatus();
     openGroupDetail(groupId);
+  }
+
+  // ---- Yksittäisen henkilön tietojen tarkastelu ----
+
+  function openParticipantDetail(participantId) {
+    const p = latestStatus.participants.find((x) => x.id === participantId);
+    if (!p) return;
+
+    const statusLabel = p.status === 'authorized' ? 'Valtuutettu'
+      : p.status === 'expired' ? 'Vanhentunut'
+      : 'Odottaa';
+
+    const roleLabel = p.role === 'admin' ? 'Pääkäyttäjä' : 'Vieras';
+
+    document.getElementById('modalHost').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal">
+          <h3>${nameLabelFor(p)}</h3>
+          <div class="member-line"><span>Titteli</span><span>${p.title || '–'}</span></div>
+          <div class="member-line"><span>Organisaatio</span><span>${p.organization || '–'}</span></div>
+          <div class="member-line"><span>Sähköposti</span><span>${p.email}</span></div>
+          <div class="member-line"><span>Rooli</span><span>${roleLabel}</span></div>
+          <div class="member-line"><span>Kalenterin tila</span><span>${statusLabel}</span></div>
+          <div class="actions">
+            <button class="secondary" onclick="closeModal()">Sulje</button>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   // ---- Näkyvyysasetukset + kalenterivaltuutuksen hallinta + projektista poistuminen ----
