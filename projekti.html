@@ -15,7 +15,6 @@
   button.secondary { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; }
   button.danger { background: #fff; color: #C0453A; border: 1px solid #C0453A; }
   button.danger:hover { background: #FBE4E1; }
-  button.link-btn { background: none; border: none; color: #2A4B7C; padding: 0; font-size: 12.5px; margin: 0; text-decoration: underline; }
   .toolbar { margin: 16px 0 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
   .toolbar .fetched { font-size: 12px; color: #8A93A3; margin-left: 4px; }
   #inviteResult { margin: 10px 0 16px; font-size: 13px; word-break: break-all; }
@@ -36,14 +35,13 @@
   .hour-label { position: absolute; top: 17px; font-size: 9px; color: #B7BEC8; transform: translateX(-50%); }
   .ruler-spacer { height: 36px; }
 
-  .hour-grid-line { position: absolute; top: 0; bottom: 0; width: 1px; background: #EEF1F4; z-index: 0; }
+  .hour-grid-line { position: absolute; top: 0; bottom: 0; width: 1px; background: #D7DCE2; z-index: 1; }
 
   .section-header-row { display: flex; align-items: center; gap: 6px; height: 30px; cursor: pointer; user-select: none; }
   .section-header-row .chevron { font-size: 10px; color: #586174; width: 10px; }
   .section-header-row .title { font-weight: 600; font-size: 13.5px; }
   .section-header-row .count { color: #8A93A3; font-size: 12px; }
   .section-spacer-row { height: 30px; border-top: 1px solid #EEF1F4; }
-  .section-actions { margin-left: auto; }
 
   .name-row, .timeline-row { height: 44px; display: flex; align-items: center; }
   .name-row + .name-row, .timeline-row + .timeline-row,
@@ -53,23 +51,23 @@
 
   .avatar { width: 26px; height: 26px; border-radius: 50%; flex: 0 0 26px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 600; }
   .avatar.group-icon { background: #E1E6EF; color: #2A4B7C; }
+  .avatar.status-circle { background: #fff; border: 2px solid; box-sizing: border-box; }
+  .avatar.status-circle.ok { border-color: #1E6B3C; color: #1E6B3C; }
+  .avatar.status-circle.warn { border-color: #C0453A; color: #C0453A; }
 
   .who-text { display: flex; flex-direction: column; min-width: 0; }
   .who-text .name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .who-text .name.clickable { cursor: pointer; }
   .who-text .name.clickable:hover { text-decoration: underline; }
   .who-text .status-line { font-size: 11px; margin-top: 1px; }
-  .status-line.ok { color: #1E6B3C; }
-  .status-line.warn { color: #C0453A; }
-  .status-line.pending { color: #91600C; }
   .status-line.group { color: #2A4B7C; }
 
   .timeline-row { position: relative; }
   .timeline-row.clickable { cursor: pointer; }
   .timeline-cell { position: relative; height: 24px; }
-  .day-bg { position: absolute; top: 0; bottom: 0; background: #EEF1F4; border-radius: 6px; border: 1px solid #DBDFE5; box-sizing: border-box; }
-  .busy-block { position: absolute; top: 2px; bottom: 2px; background: #E8938A; border-radius: 3px; z-index: 1; }
-  .now-line { position: absolute; top: -20px; bottom: 0; width: 2px; background: #2A4B7C; z-index: 2; }
+  .day-bg { position: absolute; top: 0; bottom: 0; background: #EEF1F4; border-radius: 6px; border: 1px solid #DBDFE5; box-sizing: border-box; z-index: 0; }
+  .busy-block { position: absolute; top: 2px; bottom: 2px; background: #E8938A; border-radius: 3px; z-index: 2; }
+  .now-line { position: absolute; top: -20px; bottom: 0; width: 2px; background: #2A4B7C; z-index: 3; }
   .no-data { color: #8A93A3; font-size: 12.5px; }
 
   .empty-note { color: #8A93A3; font-size: 12.5px; padding: 6px 0 6px 18px; }
@@ -182,16 +180,12 @@
   const WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
   const WEEKDAY_FULL = ['maanantai', 'tiistai', 'keskiviikko', 'torstai', 'perjantai', 'lauantai', 'sunnuntai'];
   const MONTH_FULL = ['tammikuuta', 'helmikuuta', 'maaliskuuta', 'huhtikuuta', 'toukokuuta', 'kesäkuuta', 'heinäkuuta', 'elokuuta', 'syyskuuta', 'lokakuuta', 'marraskuuta', 'joulukuuta'];
-  const AVATAR_COLORS = ['#2A4B7C', '#1E6B3C', '#91600C', '#8B4FBF', '#0E7C86', '#C0453A'];
 
   const CLIENT_ID = "54f922c6-aa24-44b4-9305-f28964c09f96";
   const CALENDAR_REDIRECT_URI = "https://nrrhvbxvkizvkcwwglck.supabase.co/functions/v1/auth-callback";
 
-  // ---- Henkilökohtaiset näkymäasetukset (selaimen omassa localStoragessa,
-  // ei vaikuta siihen mitä muut näkevät — eri asia kuin backend-tallennetut
-  // näkyvyysasetukset alempana) ----
   let viewPrefs = JSON.parse(localStorage.getItem('yhteisikkuna_viewPrefs') || '{}');
-  let dayRangeMode = viewPrefs.dayRangeMode || 'full'; // 'full' (0-24) tai 'business' (9-17)
+  let dayRangeMode = viewPrefs.dayRangeMode || 'full';
   let hideWeekends = !!viewPrefs.hideWeekends;
 
   let HOURS_START = 0;
@@ -264,8 +258,6 @@
     return toDateStr(new Date());
   }
 
-  // Askeltaa yhden päivän eteen/taakse, ohittaen viikonloput jos
-  // hideWeekends on päällä.
   function stepDay(dateStr, direction) {
     const d = new Date(dateStr + 'T00:00:00');
     do {
@@ -341,8 +333,6 @@
       let endMin = end.getHours() * 60 + end.getMinutes();
       if (endMin <= startMin) endMin = 1440;
 
-      // Rajataan näkyvään ikkunaan (esim. 9-17) — ohitetaan kokonaan
-      // ikkunan ulkopuolelle jäävät, katkaistaan osittain osuvat.
       if (endMin <= winStart || startMin >= winEnd) return;
       startMin = Math.max(startMin, winStart);
       endMin = Math.min(endMin, winEnd);
@@ -371,9 +361,11 @@
     return BUFFER_DAYS * DAY_VISIBLE_PX;
   }
 
+  // Piirtojärjestys on tärkeä: tausta ensin (alimmaisena), sitten apuviivat
+  // sen PÄÄLLE (näkyviksi), sitten varaukset, ja "nyt"-viiva päällimmäisenä.
   function timelineCellHtml(items) {
     const w = totalWidthPx();
-    return `<div class="timeline-cell" style="width:${w}px;">${hourGridLinesHtml()}${dayBackgroundsHtml()}${busyBlocksHtml(items)}${nowLineHtml()}</div>`;
+    return `<div class="timeline-cell" style="width:${w}px;">${dayBackgroundsHtml()}${hourGridLinesHtml()}${busyBlocksHtml(items)}${nowLineHtml()}</div>`;
   }
 
   function isAdminForProject(status) {
@@ -431,15 +423,19 @@
     return label.slice(0, 2).toUpperCase();
   }
 
-  function colorFor(label) {
-    let hash = 0;
-    for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) % AVATAR_COLORS.length;
-    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+  function groupAvatarHtml() {
+    return `<div class="avatar group-icon">👥</div>`;
   }
 
-  function avatarHtml(label, isGroup) {
-    if (isGroup) return `<div class="avatar group-icon">👥</div>`;
-    return `<div class="avatar" style="background:${colorFor(label)};">${initialsFor(label)}</div>`;
+  // Osallistujan avatar kertoo kalenterin tilan värillä + hover-tekstillä,
+  // ei enää erillistä värillistä tekstiriviä nimen alla.
+  function participantAvatarHtml(p) {
+    const label = nameLabelFor(p);
+    const initials = initialsFor(label);
+    if (p.status === 'authorized') {
+      return `<div class="avatar status-circle ok" title="Kalenteritiedot ovat ajantasalla">${initials}</div>`;
+    }
+    return `<div class="avatar status-circle warn" title="Kalenteritietoa ei ole jaettu">${initials}</div>`;
   }
 
   function onViewDateChange() {
@@ -532,7 +528,7 @@
     renderAll();
   }
 
-  function sectionHeaderPair(section, title, count, actionsHtml) {
+  function sectionHeaderPair(section, title, count) {
     const collapsed = sectionCollapsed[section];
     const chevron = collapsed ? '▶' : '▼';
     const nameSide = `
@@ -540,17 +536,10 @@
         <span class="chevron">${chevron}</span>
         <span class="title">${title}</span>
         <span class="count">${count}</span>
-        <span class="section-actions">${actionsHtml || ''}</span>
       </div>
     `;
     const timelineSide = `<div class="section-spacer-row"></div>`;
     return { nameSide, timelineSide };
-  }
-
-  function statusLineFor(p) {
-    if (p.status === 'authorized') return '<span class="status-line ok">Valtuutettu</span>';
-    if (p.status === 'expired') return '<span class="status-line warn">Vanhentunut</span>';
-    return '<span class="status-line pending">Odottaa</span>';
   }
 
   function renderAll() {
@@ -582,16 +571,17 @@
     namesCol.innerHTML = '<div class="ruler-spacer"></div>';
     timelineCol.innerHTML = '';
 
+    // ---- Koko projekti (yhteenveto) — ei enää alaotsiketekstiä ----
     namesCol.innerHTML += `
       <div class="name-row">
-        ${avatarHtml('KP', true)}
-        <div class="who-text"><span class="name">Koko projekti</span><span class="status-line group">Yhteenveto</span></div>
+        ${groupAvatarHtml()}
+        <div class="who-text"><span class="name">Koko projekti</span></div>
       </div>
     `;
     timelineCol.innerHTML += `<div class="timeline-row" style="width:${totalWidthPx()}px;">${timelineCellHtml(allBusy)}</div>`;
 
-    const peopleHeader = sectionHeaderPair('people', 'Projektin henkilöt', data.participants.length,
-      `<button class="link-btn" onclick="event.stopPropagation(); addParticipant();">+ Lisää osallistuja</button>`);
+    // ---- Projektin henkilöt ----
+    const peopleHeader = sectionHeaderPair('people', 'Projektin henkilöt', data.participants.length);
     namesCol.innerHTML += peopleHeader.nameSide;
     timelineCol.innerHTML += peopleHeader.timelineSide;
 
@@ -600,8 +590,8 @@
         const label = nameLabelFor(p);
         namesCol.innerHTML += `
           <div class="name-row clickable" onclick="openParticipantDetail('${p.id}')">
-            ${avatarHtml(label, false)}
-            <div class="who-text"><span class="name clickable">${label}</span>${statusLineFor(p)}</div>
+            ${participantAvatarHtml(p)}
+            <div class="who-text"><span class="name clickable">${label}</span></div>
           </div>
         `;
         const tRow = document.createElement('div');
@@ -615,8 +605,9 @@
       });
     }
 
+    // ---- Omat ryhmät ----
     const ownGroups = (data.groups || []).filter((g) => g.visibility === 'private' && g.isOwn);
-    const ownHeader = sectionHeaderPair('owngroups', 'Omat ryhmät', ownGroups.length, '');
+    const ownHeader = sectionHeaderPair('owngroups', 'Omat ryhmät', ownGroups.length);
     namesCol.innerHTML += ownHeader.nameSide;
     timelineCol.innerHTML += ownHeader.timelineSide;
 
@@ -629,8 +620,9 @@
       }
     }
 
+    // ---- Projektin ryhmät ----
     const projectGroups = (data.groups || []).filter((g) => g.visibility === 'project');
-    const projHeader = sectionHeaderPair('projectgroups', 'Projektin ryhmät', projectGroups.length, '');
+    const projHeader = sectionHeaderPair('projectgroups', 'Projektin ryhmät', projectGroups.length);
     namesCol.innerHTML += projHeader.nameSide;
     timelineCol.innerHTML += projHeader.timelineSide;
 
@@ -656,7 +648,7 @@
     nameDiv.className = 'name-row clickable';
     nameDiv.onclick = () => openGroupDetail(g.id);
     nameDiv.innerHTML = `
-      ${avatarHtml(g.name, true)}
+      ${groupAvatarHtml()}
       <div class="who-text"><span class="name clickable">${g.name}</span><span class="status-line group">${visLabel}</span></div>
     `;
     namesCol.appendChild(nameDiv);
