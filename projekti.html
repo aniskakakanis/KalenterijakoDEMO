@@ -5,9 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Yhteisikkuna — Projektin hallinta</title>
 <style>
-  body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 860px; margin: 40px auto; padding: 0 20px 60px; }
+  body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 900px; margin: 40px auto; padding: 0 20px 60px; }
   h1 { font-size: 20px; margin-bottom: 4px; }
-  h3 { font-size: 14px; margin: 0 0 10px; }
   p.sub { color: #586174; font-size: 14px; margin-top: 0; }
   a.back { font-size: 13px; color: #2A4B7C; text-decoration: none; }
   button { background: #2A4B7C; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-right: 8px; }
@@ -16,6 +15,7 @@
   button.secondary { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; }
   button.danger { background: #fff; color: #C0453A; border: 1px solid #C0453A; }
   button.danger:hover { background: #FBE4E1; }
+  button.link-btn { background: none; border: none; color: #2A4B7C; padding: 0; font-size: 12.5px; margin: 0; text-decoration: underline; }
   .toolbar { margin: 16px 0 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
   .toolbar .fetched { font-size: 12px; color: #8A93A3; margin-left: 4px; }
   #inviteResult { margin: 10px 0 16px; font-size: 13px; word-break: break-all; }
@@ -24,56 +24,73 @@
   .date-bar input[type=date], .date-bar input[type=time] { border: 1px solid #DBDFE5; border-radius: 6px; padding: 5px 7px; font-size: 13px; }
   .date-bar .today-btn { padding: 5px 10px; font-size: 12px; margin: 0; }
 
-  .board-block { margin-bottom: 22px; }
-  .board { background: #fff; border: 1px solid #DBDFE5; border-radius: 12px; padding: 14px 16px; }
-  .board-topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .board { background: #fff; border: 1px solid #DBDFE5; border-radius: 12px; padding: 18px 20px 8px; }
+  .date-title { font-size: 16px; font-weight: 600; margin: 0 0 14px; }
 
   .dual-pane { display: flex; }
-  .names-col { width: 168px; flex: 0 0 168px; }
+  .names-col { width: 210px; flex: 0 0 210px; }
   .timeline-col { flex: 1; overflow-x: auto; overflow-y: hidden; }
-  .timeline-col.follower { overflow-x: hidden; }
 
-  .header-spacer { height: 18px; }
-  .ruler-cell { width: 9600px; height: 18px; position: relative; }
+  .ruler-cell { height: 32px; position: relative; margin-bottom: 4px; }
   .day-label { position: absolute; top: 0; height: 16px; font-size: 10px; color: #8A93A3; border-left: 1px solid #DBDFE5; padding-left: 4px; box-sizing: border-box; }
+  .hour-label { position: absolute; top: 17px; font-size: 9px; color: #B7BEC8; transform: translateX(-50%); }
+  .ruler-spacer { height: 36px; }
 
-  .name-row, .timeline-row { height: 34px; display: flex; align-items: center; }
-  .name-row + .name-row, .timeline-row + .timeline-row { border-top: 1px solid #EEF1F4; }
-  .name-row { gap: 6px; padding-right: 6px; }
-  .name-row input[type=checkbox] { flex: 0 0 auto; }
-  .name-row .checkbox-spacer { width: 14px; flex: 0 0 14px; }
-  .name-row .email { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .name-row .email.clickable { cursor: pointer; text-decoration: underline dotted; }
+  .hour-grid-line { position: absolute; top: 0; bottom: 0; width: 1px; background: #EEF1F4; z-index: 0; }
+
+  .section-header-row { display: flex; align-items: center; gap: 6px; height: 30px; cursor: pointer; user-select: none; }
+  .section-header-row .chevron { font-size: 10px; color: #586174; width: 10px; }
+  .section-header-row .title { font-weight: 600; font-size: 13.5px; }
+  .section-header-row .count { color: #8A93A3; font-size: 12px; }
+  .section-spacer-row { height: 30px; border-top: 1px solid #EEF1F4; }
+  .section-actions { margin-left: auto; }
+
+  .name-row, .timeline-row { height: 44px; display: flex; align-items: center; }
+  .name-row + .name-row, .timeline-row + .timeline-row,
+  .name-row + .section-header-row, .timeline-row + .section-spacer-row { border-top: 1px solid #EEF1F4; }
+  .name-row { gap: 8px; padding-right: 6px; }
   .name-row.clickable { cursor: pointer; }
-  .name-row.clickable:hover .email { text-decoration: underline; }
 
-  .timeline-row { width: 9600px; position: relative; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; flex: 0 0 26px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 600; }
+  .avatar.group-icon { background: #E1E6EF; color: #2A4B7C; }
+
+  .who-text { display: flex; flex-direction: column; min-width: 0; }
+  .who-text .name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who-text .name.clickable { cursor: pointer; }
+  .who-text .name.clickable:hover { text-decoration: underline; }
+  .who-text .status-line { font-size: 11px; margin-top: 1px; }
+  .status-line.ok { color: #1E6B3C; }
+  .status-line.warn { color: #C0453A; }
+  .status-line.pending { color: #91600C; }
+  .status-line.group { color: #2A4B7C; }
+
+  .timeline-row { position: relative; }
   .timeline-row.clickable { cursor: pointer; }
-  .timeline-cell { width: 9600px; position: relative; height: 24px; }
+  .timeline-cell { position: relative; height: 24px; }
   .day-bg { position: absolute; top: 0; bottom: 0; background: #EEF1F4; border-radius: 6px; border: 1px solid #DBDFE5; box-sizing: border-box; }
   .busy-block { position: absolute; top: 2px; bottom: 2px; background: #E8938A; border-radius: 3px; z-index: 1; }
   .now-line { position: absolute; top: -20px; bottom: 0; width: 2px; background: #2A4B7C; z-index: 2; }
-  .no-data { color: #8A93A3; font-size: 12.5px; width: 9600px; }
+  .no-data { color: #8A93A3; font-size: 12.5px; }
 
-  .names-rows { overflow: hidden; }
-  .timeline-rows { overflow-y: auto; overflow-x: hidden; width: 9600px; }
-  .rows-people { max-height: 238px; }
-  .rows-groups { max-height: 136px; }
+  .empty-note { color: #8A93A3; font-size: 12.5px; padding: 6px 0 6px 18px; }
 
-  .badge { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10.5px; }
-  .badge.groupvis { background: #E1E6EF; color: #2A4B7C; }
-
-  .empty-note { color: #8A93A3; font-size: 12.5px; padding: 6px 0; }
+  .legend { display: flex; gap: 18px; align-items: center; font-size: 11.5px; color: #586174; border-top: 1px solid #EEF1F4; margin-top: 10px; padding: 10px 0; }
+  .legend .swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+  .legend .swatch.busy { background: #E8938A; }
+  .legend .swatch.free { background: #EEF1F4; border: 1px solid #DBDFE5; }
 
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; z-index: 10; overflow-y: auto; padding: 30px 0; }
   .modal { background: #fff; border-radius: 12px; padding: 22px; width: 380px; max-width: 90vw; }
   .modal.settings-modal { width: 460px; max-height: 85vh; overflow-y: auto; }
   .modal h3 { margin-top: 0; }
-  .modal .selected-list { font-size: 13px; color: #586174; margin-bottom: 12px; max-height: 100px; overflow-y: auto; }
   .modal label { display: block; font-size: 13px; color: #586174; margin: 10px 0 4px; }
   .modal input[type=text] { width: 100%; padding: 8px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 14px; box-sizing: border-box; }
   .modal .visibility-choice { display: flex; gap: 16px; font-size: 13px; margin-top: 4px; }
   .modal .actions { margin-top: 18px; display: flex; justify-content: flex-end; gap: 8px; }
+
+  .view-prefs-section { border: 1px solid #DBDFE5; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+  .view-prefs-section .radio-row { display: flex; gap: 16px; font-size: 13px; margin: 6px 0; }
+  .view-prefs-section .check-row { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-top: 8px; }
 
   .member-line { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; font-size: 13.5px; }
   .member-line + .member-line { border-top: 1px solid #EEF1F4; }
@@ -111,8 +128,9 @@
 <p class="sub" id="projectOwner"></p>
 
 <div class="toolbar">
-  <button id="addGroupBtn" class="secondary" disabled onclick="openGroupModal()">+ Uusi ryhmä</button>
+  <button onclick="openGroupModal()">+ Uusi ryhmä</button>
   <button onclick="addParticipant()">+ Lisää osallistuja</button>
+  <button onclick="createEventStub()">+ Luo uusi tapahtuma</button>
   <button class="secondary" onclick="refreshSchedules()">Päivitä aikataulut</button>
   <button class="secondary" onclick="openSettingsModal()">Asetukset</button>
   <span class="fetched" id="fetchedSummary"></span>
@@ -128,55 +146,22 @@
   <button type="button" class="secondary today-btn" onclick="jumpToTime()">Siirry</button>
 </div>
 
-<div class="board-block">
-  <div class="board">
-    <h3>Projektin henkilöt</h3>
-    <div class="dual-pane">
-      <div class="names-col">
-        <div class="header-spacer"></div>
-        <div class="name-row"><span class="checkbox-spacer"></span><span class="email">Koko projekti</span></div>
-        <div class="names-rows rows-people" id="peopleNamesRows"></div>
-      </div>
-      <div class="timeline-col" id="peopleTimelineCol">
-        <div class="ruler-cell" id="peopleRuler"></div>
-        <div class="timeline-row" id="summaryTimelineRow"></div>
-        <div class="timeline-rows rows-people" id="peopleTimelineRows"></div>
-      </div>
+<div class="board">
+  <div class="date-title" id="dateTitle"></div>
+
+  <div class="dual-pane">
+    <div class="names-col" id="namesCol">
+      <div class="ruler-spacer"></div>
+    </div>
+    <div class="timeline-col" id="mainTimelineCol">
+      <div class="ruler-cell" id="mainRuler"></div>
+      <div id="timelineCol"></div>
     </div>
   </div>
-</div>
 
-<div class="board-block">
-  <div class="board">
-    <h3>Omat ryhmät</h3>
-    <div class="dual-pane">
-      <div class="names-col">
-        <div class="header-spacer"></div>
-        <div class="names-rows rows-groups" id="ownGroupNames"></div>
-      </div>
-      <div class="timeline-col follower" id="ownGroupsTimelineCol">
-        <div class="ruler-cell" id="ownGroupsRuler"></div>
-        <div class="timeline-rows rows-groups" id="ownGroupTimelines"></div>
-      </div>
-    </div>
-    <div id="ownGroupsEmpty"></div>
-  </div>
-</div>
-
-<div class="board-block">
-  <div class="board">
-    <h3>Projektin ryhmät</h3>
-    <div class="dual-pane">
-      <div class="names-col">
-        <div class="header-spacer"></div>
-        <div class="names-rows rows-groups" id="projectGroupNames"></div>
-      </div>
-      <div class="timeline-col follower" id="projectGroupsTimelineCol">
-        <div class="ruler-cell" id="projectGroupsRuler"></div>
-        <div class="timeline-rows rows-groups" id="projectGroupTimelines"></div>
-      </div>
-    </div>
-    <div id="projectGroupsEmpty"></div>
+  <div class="legend">
+    <span><span class="swatch busy"></span>Varattu</span>
+    <span><span class="swatch free"></span>Vapaa</span>
   </div>
 </div>
 
@@ -193,22 +178,60 @@
 
   const HOUR_PX = 80;
   const PX_PER_MIN = HOUR_PX / 60;
-  const DAY_PX = 24 * HOUR_PX; // 1920
   const BUFFER_DAYS = 5;
-  const TOTAL_PX = BUFFER_DAYS * DAY_PX; // 9600
-  const HOME_SCROLL = 1 * DAY_PX; // 1/5 vasemmalta
   const WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
+  const WEEKDAY_FULL = ['maanantai', 'tiistai', 'keskiviikko', 'torstai', 'perjantai', 'lauantai', 'sunnuntai'];
+  const MONTH_FULL = ['tammikuuta', 'helmikuuta', 'maaliskuuta', 'huhtikuuta', 'toukokuuta', 'kesäkuuta', 'heinäkuuta', 'elokuuta', 'syyskuuta', 'lokakuuta', 'marraskuuta', 'joulukuuta'];
+  const AVATAR_COLORS = ['#2A4B7C', '#1E6B3C', '#91600C', '#8B4FBF', '#0E7C86', '#C0453A'];
 
   const CLIENT_ID = "54f922c6-aa24-44b4-9305-f28964c09f96";
   const CALENDAR_REDIRECT_URI = "https://nrrhvbxvkizvkcwwglck.supabase.co/functions/v1/auth-callback";
 
+  // ---- Henkilökohtaiset näkymäasetukset (selaimen omassa localStoragessa,
+  // ei vaikuta siihen mitä muut näkevät — eri asia kuin backend-tallennetut
+  // näkyvyysasetukset alempana) ----
+  let viewPrefs = JSON.parse(localStorage.getItem('yhteisikkuna_viewPrefs') || '{}');
+  let dayRangeMode = viewPrefs.dayRangeMode || 'full'; // 'full' (0-24) tai 'business' (9-17)
+  let hideWeekends = !!viewPrefs.hideWeekends;
+
+  let HOURS_START = 0;
+  let HOURS_END = 24;
+  let DAY_VISIBLE_PX = 24 * HOUR_PX;
+
+  function computeHoursWindow() {
+    if (dayRangeMode === 'business') { HOURS_START = 9; HOURS_END = 17; }
+    else { HOURS_START = 0; HOURS_END = 24; }
+    DAY_VISIBLE_PX = (HOURS_END - HOURS_START) * HOUR_PX;
+  }
+  computeHoursWindow();
+
+  function saveViewPrefs() {
+    localStorage.setItem('yhteisikkuna_viewPrefs', JSON.stringify({ dayRangeMode, hideWeekends }));
+  }
+
+  function setDayRangeMode(mode) {
+    dayRangeMode = mode;
+    computeHoursWindow();
+    saveViewPrefs();
+    renderAll();
+    setHomeScroll();
+  }
+
+  function setHideWeekends(checked) {
+    hideWeekends = checked;
+    saveViewPrefs();
+    renderAll();
+    setHomeScroll();
+  }
+
   let currentAccessToken = null;
   let currentUserEmail = null;
   let latestStatus = null;
-  let anchorDateStr = null; // puskurin "keskuspäivä" (indeksi 1 viidestä)
+  let anchorDateStr = null;
   let settingsState = null;
   let expiredPopupShown = false;
-  const selectedParticipantIds = new Set();
+
+  let sectionCollapsed = { people: false, owngroups: false, projectgroups: false };
 
   async function ensureLoggedIn() {
     const { data: { session } } = await client.auth.getSession();
@@ -241,15 +264,24 @@
     return toDateStr(new Date());
   }
 
-  function addDaysToStr(dateStr, n) {
+  // Askeltaa yhden päivän eteen/taakse, ohittaen viikonloput jos
+  // hideWeekends on päällä.
+  function stepDay(dateStr, direction) {
     const d = new Date(dateStr + 'T00:00:00');
-    d.setDate(d.getDate() + n);
+    do {
+      d.setDate(d.getDate() + direction);
+    } while (hideWeekends && (d.getDay() === 0 || d.getDay() === 6));
     return toDateStr(d);
   }
 
   function bufferDates() {
-    const arr = [];
-    for (let i = -1; i <= 3; i++) arr.push(addDaysToStr(anchorDateStr, i));
+    const prev = stepDay(anchorDateStr, -1);
+    const arr = [prev, anchorDateStr];
+    let c = anchorDateStr;
+    for (let i = 0; i < 3; i++) {
+      c = stepDay(c, 1);
+      arr.push(c);
+    }
     return arr;
   }
 
@@ -264,21 +296,38 @@
     dates.forEach((dateStr, i) => {
       const d = new Date(dateStr + 'T00:00:00');
       const label = WEEKDAY_LABELS[(d.getDay() + 6) % 7] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '.';
-      html += `<div class="day-label" style="left:${i * DAY_PX}px; width:${DAY_PX}px;">${label}</div>`;
+      html += `<div class="day-label" style="left:${i * DAY_VISIBLE_PX}px; width:${DAY_VISIBLE_PX}px;">${label}</div>`;
+      for (let h = HOURS_START; h <= HOURS_END; h++) {
+        const x = i * DAY_VISIBLE_PX + (h - HOURS_START) * HOUR_PX;
+        html += `<div class="hour-label" style="left:${x}px;">${h}</div>`;
+      }
     });
+    return html;
+  }
+
+  function hourGridLinesHtml() {
+    let html = '';
+    for (let i = 0; i < BUFFER_DAYS; i++) {
+      for (let h = HOURS_START; h <= HOURS_END; h++) {
+        const x = i * DAY_VISIBLE_PX + (h - HOURS_START) * HOUR_PX;
+        html += `<div class="hour-grid-line" style="left:${x}px;"></div>`;
+      }
+    }
     return html;
   }
 
   function dayBackgroundsHtml() {
     let html = '';
     for (let i = 0; i < BUFFER_DAYS; i++) {
-      html += `<div class="day-bg" style="left:${i * DAY_PX + 1}px; width:${DAY_PX - 2}px;"></div>`;
+      html += `<div class="day-bg" style="left:${i * DAY_VISIBLE_PX + 1}px; width:${DAY_VISIBLE_PX - 2}px;"></div>`;
     }
     return html;
   }
 
   function busyBlocksHtml(items) {
     const dates = bufferDates();
+    const winStart = HOURS_START * 60;
+    const winEnd = HOURS_END * 60;
     let html = '';
     (items || []).forEach((item) => {
       if (item.status !== 'busy') return;
@@ -288,11 +337,17 @@
 
       const start = new Date(item.start.dateTime + 'Z');
       const end = new Date(item.end.dateTime + 'Z');
-      const startMin = start.getHours() * 60 + start.getMinutes();
+      let startMin = start.getHours() * 60 + start.getMinutes();
       let endMin = end.getHours() * 60 + end.getMinutes();
       if (endMin <= startMin) endMin = 1440;
 
-      const leftPx = dayIdx * DAY_PX + startMin * PX_PER_MIN;
+      // Rajataan näkyvään ikkunaan (esim. 9-17) — ohitetaan kokonaan
+      // ikkunan ulkopuolelle jäävät, katkaistaan osittain osuvat.
+      if (endMin <= winStart || startMin >= winEnd) return;
+      startMin = Math.max(startMin, winStart);
+      endMin = Math.min(endMin, winEnd);
+
+      const leftPx = dayIdx * DAY_VISIBLE_PX + (startMin - winStart) * PX_PER_MIN;
       const widthPx = (endMin - startMin) * PX_PER_MIN;
       const startLabel = start.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
       const endLabel = end.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
@@ -307,12 +362,18 @@
     if (todayIdx === -1) return '';
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
-    const leftPx = todayIdx * DAY_PX + nowMin * PX_PER_MIN;
+    if (nowMin < HOURS_START * 60 || nowMin >= HOURS_END * 60) return '';
+    const leftPx = todayIdx * DAY_VISIBLE_PX + (nowMin - HOURS_START * 60) * PX_PER_MIN;
     return `<div class="now-line" style="left:${leftPx}px;"></div>`;
   }
 
+  function totalWidthPx() {
+    return BUFFER_DAYS * DAY_VISIBLE_PX;
+  }
+
   function timelineCellHtml(items) {
-    return `<div class="timeline-cell">${dayBackgroundsHtml()}${busyBlocksHtml(items)}${nowLineHtml()}</div>`;
+    const w = totalWidthPx();
+    return `<div class="timeline-cell" style="width:${w}px;">${hourGridLinesHtml()}${dayBackgroundsHtml()}${busyBlocksHtml(items)}${nowLineHtml()}</div>`;
   }
 
   function isAdminForProject(status) {
@@ -329,36 +390,21 @@
     return isAdminForProject(latestStatus);
   }
 
-  function linkVerticalScroll(namesEl, timelineEl) {
-    timelineEl.addEventListener('scroll', () => {
-      namesEl.scrollTop = timelineEl.scrollTop;
-    });
-  }
-
-  function mirrorHorizontalScroll(scrollLeft) {
-    document.getElementById('ownGroupsTimelineCol').scrollLeft = scrollLeft;
-    document.getElementById('projectGroupsTimelineCol').scrollLeft = scrollLeft;
-  }
-
   function setHomeScroll() {
-    document.getElementById('peopleTimelineCol').scrollLeft = HOME_SCROLL;
-    mirrorHorizontalScroll(HOME_SCROLL);
+    document.getElementById('mainTimelineCol').scrollLeft = DAY_VISIBLE_PX;
   }
 
   function pageBuffer(direction) {
-    anchorDateStr = addDaysToStr(anchorDateStr, direction * 4);
+    let c = anchorDateStr;
+    for (let i = 0; i < 4; i++) c = stepDay(c, direction);
+    anchorDateStr = c;
     document.getElementById('viewDate').value = anchorDateStr;
     renderAll();
     setHomeScroll();
   }
 
   function attachMasterPaging() {
-    const master = document.getElementById('peopleTimelineCol');
-
-    master.addEventListener('scroll', () => {
-      mirrorHorizontalScroll(master.scrollLeft);
-    });
-
+    const master = document.getElementById('mainTimelineCol');
     master.addEventListener('scrollend', () => {
       const max = master.scrollWidth - master.clientWidth;
       if (master.scrollLeft >= max - 4) {
@@ -377,6 +423,23 @@
 
   function nameLabelFor(p) {
     return (p.firstName || p.lastName) ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : p.email;
+  }
+
+  function initialsFor(label) {
+    const parts = label.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return label.slice(0, 2).toUpperCase();
+  }
+
+  function colorFor(label) {
+    let hash = 0;
+    for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) % AVATAR_COLORS.length;
+    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+  }
+
+  function avatarHtml(label, isGroup) {
+    if (isGroup) return `<div class="avatar group-icon">👥</div>`;
+    return `<div class="avatar" style="background:${colorFor(label)};">${initialsFor(label)}</div>`;
   }
 
   function onViewDateChange() {
@@ -398,9 +461,8 @@
     const timeVal = document.getElementById('jumpTime').value;
     if (!timeVal) return;
     const [h, m] = timeVal.split(':').map(Number);
-    const leftPx = HOME_SCROLL + (h * 60 + m) * PX_PER_MIN;
-    document.getElementById('peopleTimelineCol').scrollLeft = leftPx;
-    mirrorHorizontalScroll(leftPx);
+    const minutesFromWindowStart = (h * 60 + m) - HOURS_START * 60;
+    document.getElementById('mainTimelineCol').scrollLeft = DAY_VISIBLE_PX + Math.max(0, minutesFromWindowStart) * PX_PER_MIN;
   }
 
   function startCalendarAuthForParticipant(participantId) {
@@ -465,6 +527,32 @@
     }
   }
 
+  function toggleSection(section) {
+    sectionCollapsed[section] = !sectionCollapsed[section];
+    renderAll();
+  }
+
+  function sectionHeaderPair(section, title, count, actionsHtml) {
+    const collapsed = sectionCollapsed[section];
+    const chevron = collapsed ? '▶' : '▼';
+    const nameSide = `
+      <div class="section-header-row" onclick="toggleSection('${section}')">
+        <span class="chevron">${chevron}</span>
+        <span class="title">${title}</span>
+        <span class="count">${count}</span>
+        <span class="section-actions">${actionsHtml || ''}</span>
+      </div>
+    `;
+    const timelineSide = `<div class="section-spacer-row"></div>`;
+    return { nameSide, timelineSide };
+  }
+
+  function statusLineFor(p) {
+    if (p.status === 'authorized') return '<span class="status-line ok">Valtuutettu</span>';
+    if (p.status === 'expired') return '<span class="status-line warn">Vanhentunut</span>';
+    return '<span class="status-line pending">Odottaa</span>';
+  }
+
   function renderAll() {
     const data = latestStatus;
     if (!data) return;
@@ -472,9 +560,13 @@
     document.getElementById('projectName').textContent = data.project.name;
     document.getElementById('projectOwner').textContent = 'Vastuuhenkilö: ' + data.project.owner_email;
 
-    document.getElementById('peopleRuler').innerHTML = rulerHtml();
-    document.getElementById('ownGroupsRuler').innerHTML = rulerHtml();
-    document.getElementById('projectGroupsRuler').innerHTML = rulerHtml();
+    document.getElementById('mainRuler').style.width = totalWidthPx() + 'px';
+    document.getElementById('mainRuler').innerHTML = rulerHtml();
+
+    const d = new Date(anchorDateStr + 'T00:00:00');
+    document.getElementById('dateTitle').textContent =
+      WEEKDAY_FULL[(d.getDay() + 6) % 7].charAt(0).toUpperCase() + WEEKDAY_FULL[(d.getDay() + 6) % 7].slice(1) +
+      ' ' + d.getDate() + '. ' + MONTH_FULL[d.getMonth()] + ' ' + d.getFullYear();
 
     const authorized = data.participants.filter((p) => p.status === 'authorized' && p.fetchedAt);
     const fetchedEl = document.getElementById('fetchedSummary');
@@ -484,37 +576,72 @@
 
     const allBusy = [];
     authorized.forEach((p) => { if (p.scheduleItems) allBusy.push(...p.scheduleItems); });
-    document.getElementById('summaryTimelineRow').innerHTML = timelineCellHtml(allBusy);
 
-    const namesEl = document.getElementById('peopleNamesRows');
-    const timelinesEl = document.getElementById('peopleTimelineRows');
-    namesEl.innerHTML = '';
-    timelinesEl.innerHTML = '';
+    const namesCol = document.getElementById('namesCol');
+    const timelineCol = document.getElementById('timelineCol');
+    namesCol.innerHTML = '<div class="ruler-spacer"></div>';
+    timelineCol.innerHTML = '';
 
-    data.participants.forEach((p) => {
-      const nameRow = document.createElement('div');
-      nameRow.className = 'name-row';
-      const checked = selectedParticipantIds.has(p.id) ? 'checked' : '';
-      nameRow.innerHTML = `
-        <input type="checkbox" data-pid="${p.id}" ${checked} onchange="toggleParticipant('${p.id}', this.checked)" />
-        <span class="email clickable" onclick="openParticipantDetail('${p.id}')">${nameLabelFor(p)}</span>
-      `;
-      namesEl.appendChild(nameRow);
+    namesCol.innerHTML += `
+      <div class="name-row">
+        ${avatarHtml('KP', true)}
+        <div class="who-text"><span class="name">Koko projekti</span><span class="status-line group">Yhteenveto</span></div>
+      </div>
+    `;
+    timelineCol.innerHTML += `<div class="timeline-row" style="width:${totalWidthPx()}px;">${timelineCellHtml(allBusy)}</div>`;
 
-      const tRow = document.createElement('div');
-      tRow.className = 'timeline-row clickable';
-      tRow.onclick = () => openParticipantDetail(p.id);
-      tRow.innerHTML = p.scheduleItems === null
-        ? '<div class="no-data">Ei vielä haettua aikataulua</div>'
-        : timelineCellHtml(p.scheduleItems);
-      timelinesEl.appendChild(tRow);
-    });
+    const peopleHeader = sectionHeaderPair('people', 'Projektin henkilöt', data.participants.length,
+      `<button class="link-btn" onclick="event.stopPropagation(); addParticipant();">+ Lisää osallistuja</button>`);
+    namesCol.innerHTML += peopleHeader.nameSide;
+    timelineCol.innerHTML += peopleHeader.timelineSide;
+
+    if (!sectionCollapsed.people) {
+      data.participants.forEach((p) => {
+        const label = nameLabelFor(p);
+        namesCol.innerHTML += `
+          <div class="name-row clickable" onclick="openParticipantDetail('${p.id}')">
+            ${avatarHtml(label, false)}
+            <div class="who-text"><span class="name clickable">${label}</span>${statusLineFor(p)}</div>
+          </div>
+        `;
+        const tRow = document.createElement('div');
+        tRow.className = 'timeline-row clickable';
+        tRow.style.width = totalWidthPx() + 'px';
+        tRow.onclick = () => openParticipantDetail(p.id);
+        tRow.innerHTML = p.scheduleItems === null
+          ? '<div class="no-data">Ei vielä haettua aikataulua</div>'
+          : timelineCellHtml(p.scheduleItems);
+        timelineCol.appendChild(tRow);
+      });
+    }
 
     const ownGroups = (data.groups || []).filter((g) => g.visibility === 'private' && g.isOwn);
-    const projectGroups = (data.groups || []).filter((g) => g.visibility === 'project');
+    const ownHeader = sectionHeaderPair('owngroups', 'Omat ryhmät', ownGroups.length, '');
+    namesCol.innerHTML += ownHeader.nameSide;
+    timelineCol.innerHTML += ownHeader.timelineSide;
 
-    renderGroupBoard(ownGroups, 'ownGroupNames', 'ownGroupTimelines', 'ownGroupsEmpty', 'Ei vielä omia ryhmiä.');
-    renderGroupBoard(projectGroups, 'projectGroupNames', 'projectGroupTimelines', 'projectGroupsEmpty', 'Ei vielä projektin ryhmiä.');
+    if (!sectionCollapsed.owngroups) {
+      if (ownGroups.length === 0) {
+        namesCol.innerHTML += `<div class="name-row"><span class="empty-note">Ei vielä omia ryhmiä.</span></div>`;
+        timelineCol.innerHTML += `<div class="timeline-row"></div>`;
+      } else {
+        ownGroups.forEach((g) => renderGroupRow(g, namesCol, timelineCol));
+      }
+    }
+
+    const projectGroups = (data.groups || []).filter((g) => g.visibility === 'project');
+    const projHeader = sectionHeaderPair('projectgroups', 'Projektin ryhmät', projectGroups.length, '');
+    namesCol.innerHTML += projHeader.nameSide;
+    timelineCol.innerHTML += projHeader.timelineSide;
+
+    if (!sectionCollapsed.projectgroups) {
+      if (projectGroups.length === 0) {
+        namesCol.innerHTML += `<div class="name-row"><span class="empty-note">Ei vielä projektin ryhmiä.</span></div>`;
+        timelineCol.innerHTML += `<div class="timeline-row"></div>`;
+      } else {
+        projectGroups.forEach((g) => renderGroupRow(g, namesCol, timelineCol));
+      }
+    }
   }
 
   function groupMergedItems(g) {
@@ -523,38 +650,23 @@
     return allItems;
   }
 
-  function renderGroupBoard(groups, namesId, timelinesId, emptyId, emptyText) {
-    const namesEl = document.getElementById(namesId);
-    const timelinesEl = document.getElementById(timelinesId);
-    const emptyEl = document.getElementById(emptyId);
-    namesEl.innerHTML = '';
-    timelinesEl.innerHTML = '';
+  function renderGroupRow(g, namesCol, timelineCol) {
+    const visLabel = g.visibility === 'project' ? 'Projektin ryhmä' : 'Oma ryhmä';
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'name-row clickable';
+    nameDiv.onclick = () => openGroupDetail(g.id);
+    nameDiv.innerHTML = `
+      ${avatarHtml(g.name, true)}
+      <div class="who-text"><span class="name clickable">${g.name}</span><span class="status-line group">${visLabel}</span></div>
+    `;
+    namesCol.appendChild(nameDiv);
 
-    if (groups.length === 0) {
-      emptyEl.innerHTML = `<p class="empty-note">${emptyText}</p>`;
-      return;
-    }
-    emptyEl.innerHTML = '';
-
-    groups.forEach((g) => {
-      const nameRow = document.createElement('div');
-      nameRow.className = 'name-row clickable';
-      nameRow.onclick = () => openGroupDetail(g.id);
-      nameRow.innerHTML = `<span class="checkbox-spacer"></span><span class="email">${g.name}</span>`;
-      namesEl.appendChild(nameRow);
-
-      const tRow = document.createElement('div');
-      tRow.className = 'timeline-row clickable';
-      tRow.onclick = () => openGroupDetail(g.id);
-      tRow.innerHTML = timelineCellHtml(groupMergedItems(g));
-      timelinesEl.appendChild(tRow);
-    });
-  }
-
-  function toggleParticipant(id, checked) {
-    if (checked) selectedParticipantIds.add(id);
-    else selectedParticipantIds.delete(id);
-    document.getElementById('addGroupBtn').disabled = selectedParticipantIds.size === 0;
+    const tRow = document.createElement('div');
+    tRow.className = 'timeline-row clickable';
+    tRow.style.width = totalWidthPx() + 'px';
+    tRow.onclick = () => openGroupDetail(g.id);
+    tRow.innerHTML = timelineCellHtml(groupMergedItems(g));
+    timelineCol.appendChild(tRow);
   }
 
   async function addParticipant() {
@@ -612,32 +724,27 @@
   }
 
   function openGroupModal() {
-    if (selectedParticipantIds.size === 0 || !latestStatus) return;
-
-    const selectedPeople = latestStatus.participants.filter((p) => selectedParticipantIds.has(p.id));
-    const admin = isAdminForProject(latestStatus);
-
-    const listHtml = selectedPeople.map((p) => `<div>${nameLabelFor(p)}</div>`).join('');
-
-    const visibilityHtml = admin ? `
-      <label>Ryhmän näkyvyys</label>
-      <div class="visibility-choice">
-        <label><input type="radio" name="visibility" value="private" checked /> Oma ryhmä</label>
-        <label><input type="radio" name="visibility" value="project" /> Projektin ryhmä</label>
-      </div>
-    ` : '';
-
     document.getElementById('modalHost').innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="modal">
           <h3>Uusi ryhmä</h3>
-          <div class="selected-list">${listHtml}</div>
-          <label>Ryhmän nimi</label>
-          <input type="text" id="groupNameInput" placeholder="esim. Johtoryhmä" />
-          ${visibilityHtml}
+          <p class="sub">Tästä pääsee pian valitsemaan henkilöt koko nimilistasta ryhmää varten — tämä osa päivitetään seuraavaksi.</p>
           <div class="actions">
-            <button class="secondary" onclick="closeModal()">Peruuta</button>
-            <button onclick="submitGroup()">Luo ryhmä</button>
+            <button class="secondary" onclick="closeModal()">Sulje</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function createEventStub() {
+    document.getElementById('modalHost').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal">
+          <h3>Luo uusi tapahtuma</h3>
+          <p class="sub">Tämän toiminnallisuus määritetään pian.</p>
+          <div class="actions">
+            <button class="secondary" onclick="closeModal()">Sulje</button>
           </div>
         </div>
       </div>
@@ -646,39 +753,6 @@
 
   function closeModal() {
     document.getElementById('modalHost').innerHTML = '';
-  }
-
-  async function submitGroup() {
-    const name = document.getElementById('groupNameInput').value.trim();
-    if (!name) {
-      alert('Anna ryhmälle nimi.');
-      return;
-    }
-
-    const visibilityInput = document.querySelector('input[name="visibility"]:checked');
-    const visibility = visibilityInput ? visibilityInput.value : 'private';
-
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/create-group`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        projectId: PROJECT_ID,
-        name,
-        participantIds: Array.from(selectedParticipantIds),
-        visibility,
-      }),
-    });
-    const data = await res.json();
-
-    if (data.error) {
-      alert('Virhe: ' + data.error);
-      return;
-    }
-
-    selectedParticipantIds.clear();
-    document.getElementById('addGroupBtn').disabled = true;
-    closeModal();
-    loadStatus();
   }
 
   function openGroupDetail(groupId) {
@@ -759,8 +833,6 @@
     openGroupDetail(groupId);
   }
 
-  // ---- Yksittäisen henkilön tietojen tarkastelu ----
-
   function openParticipantDetail(participantId) {
     const p = latestStatus.participants.find((x) => x.id === participantId);
     if (!p) return;
@@ -787,8 +859,6 @@
       </div>
     `;
   }
-
-  // ---- Näkyvyysasetukset + kalenterivaltuutuksen hallinta + projektista poistuminen ----
 
   function isoToDatetimeLocal(iso) {
     return iso.slice(0, 16);
@@ -828,6 +898,22 @@
     });
 
     renderSettingsModal();
+  }
+
+  function viewPrefsSectionHtml() {
+    return `
+      <div class="view-prefs-section">
+        <label style="margin-top:0;">Näkymän asetukset</label>
+        <div class="radio-row">
+          <label><input type="radio" name="dayRangeMode" value="full" ${dayRangeMode === 'full' ? 'checked' : ''} onchange="setDayRangeMode('full')" /> Koko vuorokausi (0–24)</label>
+          <label><input type="radio" name="dayRangeMode" value="business" ${dayRangeMode === 'business' ? 'checked' : ''} onchange="setDayRangeMode('business')" /> Työaika (9–17)</label>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="hideWeekendsCheck" ${hideWeekends ? 'checked' : ''} onchange="setHideWeekends(this.checked)" />
+          <label style="margin:0;" for="hideWeekendsCheck">Piilota viikonloput</label>
+        </div>
+      </div>
+    `;
   }
 
   function calendarSectionHtml() {
@@ -963,7 +1049,9 @@
     document.getElementById('modalHost').innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="modal settings-modal">
-          <h3>Näkyvyysasetukset</h3>
+          <h3>Asetukset</h3>
+
+          ${viewPrefsSectionHtml()}
 
           ${calendarSectionHtml()}
 
@@ -1025,10 +1113,6 @@
     closeModal();
     loadStatus();
   }
-
-  linkVerticalScroll(document.getElementById('peopleNamesRows'), document.getElementById('peopleTimelineRows'));
-  linkVerticalScroll(document.getElementById('ownGroupNames'), document.getElementById('ownGroupTimelines'));
-  linkVerticalScroll(document.getElementById('projectGroupNames'), document.getElementById('projectGroupTimelines'));
 
   attachMasterPaging();
 
