@@ -86,6 +86,18 @@
   .modal .visibility-choice { display: flex; gap: 16px; font-size: 13px; margin-top: 4px; }
   .modal .actions { margin-top: 18px; display: flex; justify-content: flex-end; gap: 8px; }
 
+  .group-modal-list { max-height: 260px; overflow-y: auto; border: 1px solid #EEF1F4; border-radius: 8px; margin: 10px 0; }
+  .group-select-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-top: 1px solid #EEF1F4; transition: background 0.15s; }
+  .group-select-row:first-child { border-top: none; }
+  .group-select-row.selected { background: #E4F2E9; }
+  .group-select-row .row-name { font-size: 13.5px; }
+  .group-select-btn { padding: 6px 14px; font-size: 12.5px; margin: 0; }
+  .group-select-btn.added { background: #1E6B3C; color: #fff; border-color: #1E6B3C; }
+
+  .visibility-pill-row { display: flex; gap: 8px; margin-top: 14px; }
+  .visibility-pill { flex: 1; padding: 10px; text-align: center; border-radius: 8px; border: 1px solid #DBDFE5; cursor: pointer; font-size: 13px; background: #fff; color: #2A4B7C; }
+  .visibility-pill.active { background: #2A4B7C; color: #fff; border-color: #2A4B7C; }
+
   .view-prefs-section { border: 1px solid #DBDFE5; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
   .view-prefs-section .radio-row { display: flex; gap: 16px; font-size: 13px; margin: 6px 0; }
   .view-prefs-section .check-row { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-top: 8px; }
@@ -224,6 +236,7 @@
   let anchorDateStr = null;
   let settingsState = null;
   let expiredPopupShown = false;
+  let newGroupState = { selectedIds: new Set(), visibility: 'private', name: '' };
 
   let sectionCollapsed = { people: false, owngroups: false, projectgroups: false };
 
@@ -361,8 +374,6 @@
     return BUFFER_DAYS * DAY_VISIBLE_PX;
   }
 
-  // Piirtojärjestys on tärkeä: tausta ensin (alimmaisena), sitten apuviivat
-  // sen PÄÄLLE (näkyviksi), sitten varaukset, ja "nyt"-viiva päällimmäisenä.
   function timelineCellHtml(items) {
     const w = totalWidthPx();
     return `<div class="timeline-cell" style="width:${w}px;">${dayBackgroundsHtml()}${hourGridLinesHtml()}${busyBlocksHtml(items)}${nowLineHtml()}</div>`;
@@ -427,8 +438,6 @@
     return `<div class="avatar group-icon">👥</div>`;
   }
 
-  // Osallistujan avatar kertoo kalenterin tilan värillä + hover-tekstillä,
-  // ei enää erillistä värillistä tekstiriviä nimen alla.
   function participantAvatarHtml(p) {
     const label = nameLabelFor(p);
     const initials = initialsFor(label);
@@ -571,7 +580,6 @@
     namesCol.innerHTML = '<div class="ruler-spacer"></div>';
     timelineCol.innerHTML = '';
 
-    // ---- Koko projekti (yhteenveto) — ei enää alaotsiketekstiä ----
     namesCol.innerHTML += `
       <div class="name-row">
         ${groupAvatarHtml()}
@@ -580,7 +588,6 @@
     `;
     timelineCol.innerHTML += `<div class="timeline-row" style="width:${totalWidthPx()}px;">${timelineCellHtml(allBusy)}</div>`;
 
-    // ---- Projektin henkilöt ----
     const peopleHeader = sectionHeaderPair('people', 'Projektin henkilöt', data.participants.length);
     namesCol.innerHTML += peopleHeader.nameSide;
     timelineCol.innerHTML += peopleHeader.timelineSide;
@@ -605,7 +612,6 @@
       });
     }
 
-    // ---- Omat ryhmät ----
     const ownGroups = (data.groups || []).filter((g) => g.visibility === 'private' && g.isOwn);
     const ownHeader = sectionHeaderPair('owngroups', 'Omat ryhmät', ownGroups.length);
     namesCol.innerHTML += ownHeader.nameSide;
@@ -620,7 +626,6 @@
       }
     }
 
-    // ---- Projektin ryhmät ----
     const projectGroups = (data.groups || []).filter((g) => g.visibility === 'project');
     const projHeader = sectionHeaderPair('projectgroups', 'Projektin ryhmät', projectGroups.length);
     namesCol.innerHTML += projHeader.nameSide;
@@ -715,18 +720,85 @@
     loadStatus();
   }
 
+  // ---- Uusi ryhmä: nimi + vieritettävä valintalista + näkyvyys ----
+
   function openGroupModal() {
+    if (!latestStatus) return;
+    newGroupState = { selectedIds: new Set(), visibility: 'private', name: '' };
+    renderGroupCreateModal();
+  }
+
+  function renderGroupCreateModal() {
+    const admin = isAdminForProject(latestStatus);
+
+    const rows = latestStatus.participants.map((p) => {
+      const label = nameLabelFor(p);
+      const selected = newGroupState.selectedIds.has(p.id);
+      return `
+        <div class="group-select-row ${selected ? 'selected' : ''}">
+          <span class="row-name">${label}</span>
+          <button type="button" class="secondary group-select-btn ${selected ? 'added' : ''}" onclick="toggleNewGroupMember('${p.id}')">${selected ? 'Valittu ✓' : 'Lisää'}</button>
+        </div>
+      `;
+    }).join('') || '<p class="empty-note">Ei osallistujia.</p>';
+
+    const visibilityHtml = admin ? `
+      <label>Ryhmän näkyvyys</label>
+      <div class="visibility-pill-row">
+        <div class="visibility-pill ${newGroupState.visibility === 'private' ? 'active' : ''}" onclick="setNewGroupVisibility('private')">Oma ryhmä</div>
+        <div class="visibility-pill ${newGroupState.visibility === 'project' ? 'active' : ''}" onclick="setNewGroupVisibility('project')">Projektin ryhmä</div>
+      </div>
+    ` : '';
+
     document.getElementById('modalHost').innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="modal">
           <h3>Uusi ryhmä</h3>
-          <p class="sub">Tästä pääsee pian valitsemaan henkilöt koko nimilistasta ryhmää varten — tämä osa päivitetään seuraavaksi.</p>
+          <label style="margin-top:0;">Ryhmän nimi</label>
+          <input type="text" id="newGroupNameInput" placeholder="esim. Johtoryhmä" value="${newGroupState.name}" oninput="newGroupState.name = this.value" />
+          <label>Valitse jäsenet</label>
+          <div class="group-modal-list">${rows}</div>
+          ${visibilityHtml}
           <div class="actions">
-            <button class="secondary" onclick="closeModal()">Sulje</button>
+            <button class="secondary" onclick="closeModal()">Peruuta</button>
+            <button onclick="submitNewGroup()">Luo ryhmä</button>
           </div>
         </div>
       </div>
     `;
+  }
+
+  function toggleNewGroupMember(id) {
+    if (newGroupState.selectedIds.has(id)) newGroupState.selectedIds.delete(id);
+    else newGroupState.selectedIds.add(id);
+    renderGroupCreateModal();
+  }
+
+  function setNewGroupVisibility(v) {
+    newGroupState.visibility = v;
+    renderGroupCreateModal();
+  }
+
+  async function submitNewGroup() {
+    const name = newGroupState.name.trim();
+    if (!name) { alert('Anna ryhmälle nimi.'); return; }
+    if (newGroupState.selectedIds.size === 0) { alert('Valitse vähintään yksi jäsen.'); return; }
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/create-group`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        projectId: PROJECT_ID,
+        name,
+        participantIds: Array.from(newGroupState.selectedIds),
+        visibility: newGroupState.visibility,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) { alert('Virhe: ' + data.error); return; }
+
+    closeModal();
+    loadStatus();
   }
 
   function createEventStub() {
