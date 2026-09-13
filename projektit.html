@@ -62,9 +62,11 @@
     });
     const data = await res.json();
 
-    if (data.isSuperadmin) {
+  if (data.isSuperadmin) {
       document.getElementById('adminLinkWrap').innerHTML =
-        '<a class="back" href="/asiakkaat.html">&rarr; Asiakkaat</a>';
+        '<a class="back" href="/asiakkaat.html">&rarr; Asiakkaat</a>' +
+        ' &nbsp;|&nbsp; ' +
+        '<a class="back" href="/henkilot.html">&rarr; Henkilöt</a>';
     }
 
     const list = document.getElementById('list');
