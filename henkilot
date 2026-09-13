@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Yhteisikkuna — Kaikki henkilöt</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 760px; margin: 40px auto; padding: 0 20px 60px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.sub { color: #586174; font-size: 14px; margin-top: 0; }
+  a.back { font-size: 13px; color: #2A4B7C; text-decoration: none; }
+  button { background: #2A4B7C; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-right: 8px; }
+  button.danger { background: #fff; color: #C0453A; border: 1px solid #C0453A; padding: 6px 12px; font-size: 12.5px; margin: 0; }
+  button.danger:hover { background: #FBE4E1; }
+
+  .search-bar { margin: 16px 0; }
+  .search-bar input { width: 100%; padding: 9px 12px; border: 1px solid #DBDFE5; border-radius: 8px; font-size: 14px; box-sizing: border-box; }
+
+  .person-card { background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+  .person-card .top-row { display: flex; justify-content: space-between; align-items: flex-start; }
+  .person-card .email { font-weight: 600; font-size: 14.5px; }
+  .person-card .name { color: #586174; font-size: 12.5px; margin-top: 2px; }
+
+  .tag-group { margin-top: 10px; }
+  .tag-group .tag-label { font-size: 11px; color: #8A93A3; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 4px; }
+  .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { background: #EEF1F4; border-radius: 999px; padding: 3px 10px; font-size: 12px; color: #2A4B7C; }
+  .tag.status-authorized { background: #DCF3E4; color: #1E6B3C; }
+  .tag.status-expired { background: #FBE4E1; color: #9C2C22; }
+  .tag.status-pending { background: #FBF0DC; color: #91600C; }
+
+  .empty-note { color: #8A93A3; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<a class="back" href="/asiakkaat.html">&larr; Asiakkaat</a>
+<h1>Kaikki henkilöt</h1>
+<p class="sub">Jokainen sähköposti, joka on jollain tavalla liittynyt sovellukseen — asiakkuudet ja projektit statuksineen.</p>
+
+<div class="search-bar">
+  <input type="text" id="searchInput" placeholder="Hae sähköpostilla tai nimellä…" oninput="renderList()" />
+</div>
+
+<div id="list">Ladataan…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
+  const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ycmh2Ynh2a2l6dmtjd3dnbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0NjU3NDAsImV4cCI6MjEwMzA0MTc0MH0.S_M4KyTt4E_UG0ue-T-h89L17yxJKkmb36ZzNRdQnLI";
+  const client = supabase.createClient(SUPABASE_URL, ANON_KEY);
+
+  let currentAccessToken = null;
+  let allPeople = [];
+
+  function authHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'apikey': ANON_KEY,
+      'Authorization': 'Bearer ' + currentAccessToken,
+    };
+  }
+
+  async function ensureLoggedIn() {
+    const { data: { session } } = await client.auth.getSession();
+    if (!session) {
+      window.location.href = '/login.html';
+      return false;
+    }
+    currentAccessToken = session.access_token;
+    return true;
+  }
+
+  async function loadPeople() {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/list-all-people`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      document.getElementById('list').innerHTML = `<p class="empty-note">Virhe: ${data.error}</p>`;
+      return;
+    }
+
+    allPeople = data.people;
+    renderList();
+  }
+
+  function statusLabel(status) {
+    if (status === 'authorized') return 'Valtuutettu';
+    if (status === 'expired') return 'Vanhentunut';
+    return 'Odottaa';
+  }
+
+  function renderList() {
+    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    const filtered = allPeople.filter((p) => {
+      const name = ((p.firstName || '') + ' ' + (p.lastName || '')).toLowerCase();
+      return p.email.toLowerCase().includes(query) || name.includes(query);
+    });
+
+    const list = document.getElementById('list');
+
+    if (filtered.length === 0) {
+      list.innerHTML = '<p class="empty-note">Ei tuloksia.</p>';
+      return;
+    }
+
+    list.innerHTML = filtered.map((p) => {
+      const name = (p.firstName || p.lastName) ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : '';
+
+      const orgTags = p.organizations.map((o) =>
+        `<span class="tag">${o.organizationName} — ${o.role === 'superuser' ? 'pääkäyttäjä' : 'jäsen'}</span>`
+      ).join('') || '<span class="empty-note">Ei asiakkuusjäsenyyksiä.</span>';
+
+      const projectTags = p.projects.map((pr) => {
+        const orgPart = pr.organizationName ? `${pr.organizationName} / ` : '';
+        return `<span class="tag status-${pr.status}">${orgPart}${pr.projectName} — ${statusLabel(pr.status)}</span>`;
+      }).join('') || '<span class="empty-note">Ei projektiosallistumisia.</span>';
+
+      return `
+        <div class="person-card">
+          <div class="top-row">
+            <div>
+              <div class="email">${p.email}</div>
+              ${name ? `<div class="name">${name}</div>` : ''}
+            </div>
+            <button class="danger" onclick="deletePerson('${p.email.replace(/'/g, "\\'")}')">Poista käyttäjä</button>
+          </div>
+
+          <div class="tag-group">
+            <div class="tag-label">Asiakkuudet</div>
+            <div class="tag-row">${orgTags}</div>
+          </div>
+
+          <div class="tag-group">
+            <div class="tag-label">Projektit</div>
+            <div class="tag-row">${projectTags}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function deletePerson(email) {
+    const firstConfirm = confirm(
+      `Poistetaanko käyttäjä ${email} KOKONAAN sovelluksesta?\n\n` +
+      `Tämä poistaa hänet kaikista projekteista ja asiakkuuksista, ja poistaa hänen kirjautumistilinsä kokonaan. Tätä ei voi perua.`
+    );
+    if (!firstConfirm) return;
+
+    const secondConfirm = confirm(
+      `Oletko aivan varma? Kirjoita tämä vahvistus vielä kerran mielessäsi: ${email} poistetaan pysyvästi.`
+    );
+    if (!secondConfirm) return;
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/delete-person-everywhere`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      alert('Virhe: ' + data.error);
+      return;
+    }
+
+    loadPeople();
+  }
+
+  (async () => {
+    const ok = await ensureLoggedIn();
+    if (ok) loadPeople();
+  })();
+</script>
+
+</body>
+</html>
