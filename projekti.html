@@ -80,9 +80,10 @@
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; z-index: 10; overflow-y: auto; padding: 30px 0; }
   .modal { background: #fff; border-radius: 12px; padding: 22px; width: 380px; max-width: 90vw; }
   .modal.settings-modal { width: 460px; max-height: 85vh; overflow-y: auto; }
+  .modal.event-modal { width: 620px; max-width: 94vw; max-height: 88vh; overflow-y: auto; }
   .modal h3 { margin-top: 0; }
   .modal label { display: block; font-size: 13px; color: #586174; margin: 10px 0 4px; }
-  .modal input[type=text] { width: 100%; padding: 8px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 14px; box-sizing: border-box; }
+  .modal input[type=text], .modal input[type=number] { width: 100%; padding: 8px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 14px; box-sizing: border-box; }
   .modal .visibility-choice { display: flex; gap: 16px; font-size: 13px; margin-top: 4px; }
   .modal .actions { margin-top: 18px; display: flex; justify-content: flex-end; gap: 8px; }
 
@@ -128,6 +129,22 @@
   .calendar-section .meta { color: #8A93A3; font-size: 12px; margin-top: 4px; }
 
   .danger-zone { border-top: 1px solid #EEF1F4; margin-top: 18px; padding-top: 14px; }
+
+  .event-two-col { display: flex; gap: 16px; }
+  .event-two-col > div { flex: 1; min-width: 0; }
+  .event-range-row { display: flex; align-items: center; gap: 8px; }
+  .event-range-row input[type=datetime-local] { flex: 1; padding: 7px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 12.5px; }
+  .pref-row { display: flex; gap: 14px; font-size: 13px; margin-top: 6px; flex-wrap: wrap; }
+  .pref-row label { display: flex; align-items: center; gap: 5px; margin: 0; color: #161B22; }
+
+  .slot-list { border: 1px solid #DBDFE5; border-radius: 8px; margin: 10px 0 16px; }
+  .slot-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-top: 1px solid #EEF1F4; cursor: pointer; font-size: 13.5px; }
+  .slot-row:first-child { border-top: none; }
+  .slot-row.active { background: #E4F2E9; font-weight: 600; }
+  .slot-row .rank { color: #8A93A3; font-size: 11.5px; }
+
+  .event-mini-board { border: 1px solid #DBDFE5; border-radius: 10px; padding: 12px 14px; margin-top: 6px; }
+  .event-mini-names { width: 160px; flex: 0 0 160px; }
 </style>
 </head>
 <body>
@@ -140,7 +157,7 @@
 <div class="toolbar">
   <button onclick="openGroupModal()">+ Uusi ryhmä</button>
   <button onclick="addParticipant()">+ Lisää osallistuja</button>
-  <button onclick="createEventStub()">+ Luo uusi tapahtuma</button>
+  <button onclick="openCreateEventModal()">+ Luo uusi tapahtuma</button>
   <button class="secondary" onclick="refreshSchedules()">Päivitä aikataulut</button>
   <button class="secondary" onclick="openSettingsModal()">Asetukset</button>
   <span class="fetched" id="fetchedSummary"></span>
@@ -179,7 +196,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const paramsUrl = new URLSearchParams(window.location.search);
+const paramsUrl = new URLSearchParams(window.location.search);
   const PROJECT_ID = paramsUrl.get('id');
 
   const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
@@ -237,6 +254,7 @@
   let settingsState = null;
   let expiredPopupShown = false;
   let newGroupState = { selectedIds: new Set(), visibility: 'private', name: '' };
+  let eventModalState = null;
 
   let sectionCollapsed = { people: false, owngroups: false, projectgroups: false };
 
@@ -279,10 +297,17 @@
     return toDateStr(d);
   }
 
-  function bufferDates() {
-    const prev = stepDay(anchorDateStr, -1);
-    const arr = [prev, anchorDateStr];
-    let c = anchorDateStr;
+  function stepDayBy(dateStr, n) {
+    let c = dateStr;
+    const dir = n >= 0 ? 1 : -1;
+    for (let i = 0; i < Math.abs(n); i++) c = stepDay(c, dir);
+    return c;
+  }
+function bufferDates(anchor) {
+    anchor = anchor || anchorDateStr;
+    const prev = stepDay(anchor, -1);
+    const arr = [prev, anchor];
+    let c = anchor;
     for (let i = 0; i < 3; i++) {
       c = stepDay(c, 1);
       arr.push(c);
@@ -295,8 +320,8 @@
     return toDateStr(d);
   }
 
-  function rulerHtml() {
-    const dates = bufferDates();
+  function rulerHtml(anchor) {
+    const dates = bufferDates(anchor);
     let html = '';
     dates.forEach((dateStr, i) => {
       const d = new Date(dateStr + 'T00:00:00');
@@ -329,8 +354,8 @@
     return html;
   }
 
-  function busyBlocksHtml(items) {
-    const dates = bufferDates();
+  function busyBlocksHtml(items, anchor) {
+    const dates = bufferDates(anchor);
     const winStart = HOURS_START * 60;
     const winEnd = HOURS_END * 60;
     let html = '';
@@ -359,8 +384,8 @@
     return html;
   }
 
-  function nowLineHtml() {
-    const dates = bufferDates();
+  function nowLineHtml(anchor) {
+    const dates = bufferDates(anchor);
     const todayIdx = dates.indexOf(todayDateStr());
     if (todayIdx === -1) return '';
     const now = new Date();
@@ -374,9 +399,9 @@
     return BUFFER_DAYS * DAY_VISIBLE_PX;
   }
 
-  function timelineCellHtml(items) {
+  function timelineCellHtml(items, anchor) {
     const w = totalWidthPx();
-    return `<div class="timeline-cell" style="width:${w}px;">${dayBackgroundsHtml()}${hourGridLinesHtml()}${busyBlocksHtml(items)}${nowLineHtml()}</div>`;
+    return `<div class="timeline-cell" style="width:${w}px;">${dayBackgroundsHtml()}${hourGridLinesHtml()}${busyBlocksHtml(items, anchor)}${nowLineHtml(anchor)}</div>`;
   }
 
   function isAdminForProject(status) {
@@ -398,9 +423,7 @@
   }
 
   function pageBuffer(direction) {
-    let c = anchorDateStr;
-    for (let i = 0; i < 4; i++) c = stepDay(c, direction);
-    anchorDateStr = c;
+    anchorDateStr = stepDayBy(anchorDateStr, direction * 4);
     document.getElementById('viewDate').value = anchorDateStr;
     renderAll();
     setHomeScroll();
@@ -480,8 +503,7 @@
     authUrl.searchParams.set('state', participantId);
     window.location.href = authUrl.toString();
   }
-
-  async function loadStatus() {
+async function loadStatus() {
     if (!PROJECT_ID) {
       document.getElementById('projectName').textContent = 'Virhe: projektin id puuttuu osoitteesta';
       return;
@@ -719,10 +741,7 @@
 
     loadStatus();
   }
-
-  // ---- Uusi ryhmä: nimi + vieritettävä valintalista + näkyvyys ----
-
-  function openGroupModal() {
+function openGroupModal() {
     if (!latestStatus) return;
     newGroupState = { selectedIds: new Set(), visibility: 'private', name: '' };
     renderGroupCreateModal();
@@ -799,20 +818,6 @@
 
     closeModal();
     loadStatus();
-  }
-
-  function createEventStub() {
-    document.getElementById('modalHost').innerHTML = `
-      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
-        <div class="modal">
-          <h3>Luo uusi tapahtuma</h3>
-          <p class="sub">Tämän toiminnallisuus määritetään pian.</p>
-          <div class="actions">
-            <button class="secondary" onclick="closeModal()">Sulje</button>
-          </div>
-        </div>
-      </div>
-    `;
   }
 
   function closeModal() {
@@ -923,8 +928,351 @@
       </div>
     `;
   }
+function openCreateEventModal() {
+    if (!latestStatus) return;
+    eventModalState = {
+      duration: (eventModalState && eventModalState.duration) || 30,
+      peopleRoles: (eventModalState && eventModalState.peopleRoles) || {},
+      groupRoles: (eventModalState && eventModalState.groupRoles) || {},
+      rangeFrom: (eventModalState && eventModalState.rangeFrom) || '',
+      rangeTo: (eventModalState && eventModalState.rangeTo) || '',
+      preferMorning: eventModalState ? eventModalState.preferMorning : false,
+      preferMidday: eventModalState ? eventModalState.preferMidday : false,
+      preferAfternoon: eventModalState ? eventModalState.preferAfternoon : false,
+      results: null,
+      selectedResultIdx: 0,
+      calAnchor: null,
+    };
+    renderEventSelectionStep();
+  }
 
-  function isoToDatetimeLocal(iso) {
+  function setEventDuration(val) {
+    eventModalState.duration = val;
+  }
+
+  function setEventPersonRole(id, role) {
+    if (eventModalState.peopleRoles[id] === role) delete eventModalState.peopleRoles[id];
+    else eventModalState.peopleRoles[id] = role;
+    renderEventSelectionStep();
+  }
+
+  function setEventGroupRole(id, role) {
+    if (eventModalState.groupRoles[id] === role) delete eventModalState.groupRoles[id];
+    else eventModalState.groupRoles[id] = role;
+    renderEventSelectionStep();
+  }
+
+  function renderEventSelectionStep() {
+    const s = eventModalState;
+
+    const peopleRows = latestStatus.participants.map((p) => {
+      const label = nameLabelFor(p);
+      const role = s.peopleRoles[p.id];
+      return `
+        <div class="group-select-row ${role ? 'selected' : ''}">
+          <span class="row-name">${label}</span>
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="secondary group-select-btn ${role === 'required' ? 'added' : ''}" onclick="setEventPersonRole('${p.id}','required')">Pakollinen</button>
+            <button type="button" class="secondary group-select-btn ${role === 'optional' ? 'added' : ''}" onclick="setEventPersonRole('${p.id}','optional')">Valinnainen</button>
+          </div>
+        </div>
+      `;
+    }).join('') || '<p class="empty-note">Ei osallistujia.</p>';
+
+    const allGroups = (latestStatus.groups || []);
+    const groupRows = allGroups.map((g) => {
+      const role = s.groupRoles[g.id];
+      return `
+        <div class="group-select-row ${role ? 'selected' : ''}">
+          <span class="row-name">${g.name}</span>
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="secondary group-select-btn ${role === 'required' ? 'added' : ''}" onclick="setEventGroupRole('${g.id}','required')">Pakollinen</button>
+            <button type="button" class="secondary group-select-btn ${role === 'optional' ? 'added' : ''}" onclick="setEventGroupRole('${g.id}','optional')">Valinnainen</button>
+          </div>
+        </div>
+      `;
+    }).join('') || '<p class="empty-note">Ei ryhmiä.</p>';
+
+    document.getElementById('modalHost').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal event-modal">
+          <h3>Luo uusi tapahtuma</h3>
+
+          <label style="margin-top:0;">Kesto (minuuttia)</label>
+          <input type="number" min="5" step="5" value="${s.duration}" oninput="setEventDuration(this.value)" />
+
+          <div class="event-two-col" style="margin-top:14px;">
+            <div>
+              <label style="margin-top:0;">Henkilöt</label>
+              <div class="group-modal-list">${peopleRows}</div>
+            </div>
+            <div>
+              <label style="margin-top:0;">Ryhmät</label>
+              <div class="group-modal-list">${groupRows}</div>
+            </div>
+          </div>
+
+          <label>Järjestä tapahtuma välillä</label>
+          <div class="event-range-row">
+            <input type="datetime-local" value="${s.rangeFrom}" oninput="eventModalState.rangeFrom = this.value" placeholder="Alkaen (valinnainen)" />
+            <span>–</span>
+            <input type="datetime-local" value="${s.rangeTo}" oninput="eventModalState.rangeTo = this.value" placeholder="Päättyen (valinnainen)" />
+          </div>
+
+          <label>Preferoi kellonaikaa (valinnainen)</label>
+          <div class="pref-row">
+            <label><input type="checkbox" ${s.preferMorning ? 'checked' : ''} onchange="eventModalState.preferMorning=this.checked" /> Aamu 08–11</label>
+            <label><input type="checkbox" ${s.preferMidday ? 'checked' : ''} onchange="eventModalState.preferMidday=this.checked" /> Päivä 11–14</label>
+            <label><input type="checkbox" ${s.preferAfternoon ? 'checked' : ''} onchange="eventModalState.preferAfternoon=this.checked" /> Iltapäivä 14–17</label>
+          </div>
+
+          <div class="actions">
+            <button class="secondary" onclick="closeModal()">Peruuta</button>
+            <button onclick="searchEventSlots()">Hae ajat</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function resolvePersonBusy(id) {
+    const p = latestStatus.participants.find((x) => x.id === id);
+    if (!p || !p.scheduleItems) return [];
+    return p.scheduleItems
+      .filter((i) => i.status === 'busy')
+      .map((i) => ({ startMs: new Date(i.start.dateTime + 'Z').getTime(), endMs: new Date(i.end.dateTime + 'Z').getTime() }));
+  }
+
+  function resolveGroupBusy(id) {
+    const g = (latestStatus.groups || []).find((x) => x.id === id);
+    if (!g) return [];
+    return groupMergedItems(g)
+      .filter((i) => i.status === 'busy')
+      .map((i) => ({ startMs: new Date(i.start.dateTime + 'Z').getTime(), endMs: new Date(i.end.dateTime + 'Z').getTime() }));
+  }
+
+  function overlapsMs(s1, e1, s2, e2) {
+    return s1 < e2 && s2 < e1;
+  }
+
+  function findAvailableSlots(opts) {
+    const { durationMinutes, requiredBusy, optionalBusyLists, searchStart, searchEnd, preferWindows } = opts;
+    const durationMs = durationMinutes * 60000;
+    const stepMs = 15 * 60000;
+    const dayStartHour = 8;
+    const dayEndHour = 18;
+
+    let cursor = new Date(searchStart);
+    cursor.setSeconds(0, 0);
+    const rem = cursor.getMinutes() % 15;
+    if (rem !== 0) cursor.setMinutes(cursor.getMinutes() + (15 - rem));
+
+    const candidates = [];
+    let guard = 0;
+    while (cursor.getTime() + durationMs <= searchEnd.getTime() && guard < 20000) {
+      guard++;
+      const day = cursor.getDay();
+      const hour = cursor.getHours() + cursor.getMinutes() / 60;
+      const endHourFrac = hour + durationMinutes / 60;
+      const withinDay = day !== 0 && day !== 6 && hour >= dayStartHour && endHourFrac <= dayEndHour;
+
+      if (withinDay) {
+        const slotStart = cursor.getTime();
+        const slotEnd = slotStart + durationMs;
+        const conflictsRequired = requiredBusy.some((b) => overlapsMs(slotStart, slotEnd, b.startMs, b.endMs));
+
+        if (!conflictsRequired) {
+          let optionalConflicts = 0;
+          optionalBusyLists.forEach((list) => {
+            if (list.some((b) => overlapsMs(slotStart, slotEnd, b.startMs, b.endMs))) optionalConflicts++;
+          });
+          const prefersMatch = preferWindows.length === 0 ? true : preferWindows.some((w) => hour >= w.start && hour < w.end);
+          candidates.push({ startMs: slotStart, endMs: slotEnd, optionalConflicts, prefersMatch });
+        }
+      }
+      cursor = new Date(cursor.getTime() + stepMs);
+    }
+
+    candidates.sort((a, b) => {
+      if (a.prefersMatch !== b.prefersMatch) return a.prefersMatch ? -1 : 1;
+      if (a.optionalConflicts !== b.optionalConflicts) return a.optionalConflicts - b.optionalConflicts;
+      return a.startMs - b.startMs;
+    });
+
+    const chosen = [];
+    for (const c of candidates) {
+      if (chosen.some((ch) => overlapsMs(c.startMs, c.endMs, ch.startMs, ch.endMs))) continue;
+      chosen.push(c);
+      if (chosen.length >= 5) break;
+    }
+    return chosen;
+  }
+
+  function searchEventSlots() {
+    const s = eventModalState;
+    const requiredIds = { people: [], groups: [] };
+    const optionalIds = { people: [], groups: [] };
+
+    Object.entries(s.peopleRoles).forEach(([id, role]) => (role === 'required' ? requiredIds.people : optionalIds.people).push(id));
+    Object.entries(s.groupRoles).forEach(([id, role]) => (role === 'required' ? requiredIds.groups : optionalIds.groups).push(id));
+
+    if (requiredIds.people.length + requiredIds.groups.length + optionalIds.people.length + optionalIds.groups.length === 0) {
+      alert('Valitse vähintään yksi henkilö tai ryhmä.');
+      return;
+    }
+
+    const requiredBusy = [
+      ...requiredIds.people.flatMap(resolvePersonBusy),
+      ...requiredIds.groups.flatMap(resolveGroupBusy),
+    ];
+    const optionalBusyLists = [
+      ...optionalIds.people.map(resolvePersonBusy),
+      ...optionalIds.groups.map(resolveGroupBusy),
+    ];
+
+    const now = new Date();
+    const searchStart = s.rangeFrom ? new Date(s.rangeFrom) : now;
+    const searchEnd = s.rangeTo ? new Date(s.rangeTo) : new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+    const preferWindows = [];
+    if (s.preferMorning) preferWindows.push({ start: 8, end: 11 });
+    if (s.preferMidday) preferWindows.push({ start: 11, end: 14 });
+    if (s.preferAfternoon) preferWindows.push({ start: 14, end: 17 });
+
+    const results = findAvailableSlots({
+      durationMinutes: Number(s.duration) || 30,
+      requiredBusy,
+      optionalBusyLists,
+      searchStart,
+      searchEnd,
+      preferWindows,
+    });
+
+    if (results.length === 0) {
+      alert('Sopivaa aikaa ei löytynyt annetuilla ehdoilla — kokeile laajentaa hakuväliä tai vähentää pakollisia osallistujia.');
+      return;
+    }
+
+    s.results = results;
+    s.selectedResultIdx = 0;
+    s.calAnchor = toDateStr(new Date(results[0].startMs));
+    renderEventResultsStep();
+  }
+function formatSlotLabel(slot) {
+    const start = new Date(slot.startMs);
+    const end = new Date(slot.endMs);
+    const wd = WEEKDAY_LABELS[(start.getDay() + 6) % 7];
+    const dateStr = start.getDate() + '.' + (start.getMonth() + 1) + '.';
+    const startTime = start.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
+    const endTime = end.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
+    return `${wd} ${dateStr} ${startTime}–${endTime}`;
+  }
+
+  function eventSelectedAttendees() {
+    const s = eventModalState;
+    const people = Object.keys(s.peopleRoles)
+      .map((id) => latestStatus.participants.find((p) => p.id === id))
+      .filter(Boolean);
+    const groups = Object.keys(s.groupRoles)
+      .map((id) => (latestStatus.groups || []).find((g) => g.id === id))
+      .filter(Boolean);
+    return { people, groups };
+  }
+
+  function renderEventResultsStep() {
+    const s = eventModalState;
+
+    const slotRows = s.results.map((slot, idx) => `
+      <div class="slot-row ${idx === s.selectedResultIdx ? 'active' : ''}" onclick="selectEventResult(${idx})">
+        <span>${formatSlotLabel(slot)}</span>
+        <span class="rank">${idx + 1}/5</span>
+      </div>
+    `).join('');
+
+    const { people, groups } = eventSelectedAttendees();
+
+    let namesHtml = '<div class="ruler-spacer"></div>';
+    let timelineHtml = '';
+
+    people.forEach((p) => {
+      namesHtml += `
+        <div class="name-row">
+          ${participantAvatarHtml(p)}
+          <div class="who-text"><span class="name">${nameLabelFor(p)}</span></div>
+        </div>
+      `;
+      timelineHtml += `<div class="timeline-row" style="width:${totalWidthPx()}px;">${timelineCellHtml(p.scheduleItems, s.calAnchor)}</div>`;
+    });
+
+    groups.forEach((g) => {
+      namesHtml += `
+        <div class="name-row">
+          ${groupAvatarHtml()}
+          <div class="who-text"><span class="name">${g.name}</span></div>
+        </div>
+      `;
+      timelineHtml += `<div class="timeline-row" style="width:${totalWidthPx()}px;">${timelineCellHtml(groupMergedItems(g), s.calAnchor)}</div>`;
+    });
+
+    document.getElementById('modalHost').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal event-modal">
+          <h3>Ehdotetut ajat</h3>
+          <button class="secondary" onclick="renderEventSelectionStep()">+ Lisää ihmisiä / ryhmiä</button>
+
+          <div class="slot-list">${slotRows}</div>
+
+          <div class="event-mini-board">
+            <div class="dual-pane">
+              <div class="names-col event-mini-names" id="eventNamesCol">${namesHtml}</div>
+              <div class="timeline-col" id="eventTimelineCol">
+                <div class="ruler-cell" id="eventRuler" style="width:${totalWidthPx()}px;">${rulerHtml(s.calAnchor)}</div>
+                ${timelineHtml}
+              </div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="secondary" onclick="closeModal()">Sulje</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    attachEventCalPaging();
+    scrollEventCalToSelected();
+  }
+
+  function selectEventResult(idx) {
+    eventModalState.selectedResultIdx = idx;
+    eventModalState.calAnchor = toDateStr(new Date(eventModalState.results[idx].startMs));
+    renderEventResultsStep();
+  }
+
+  function attachEventCalPaging() {
+    const el = document.getElementById('eventTimelineCol');
+    if (!el) return;
+    el.addEventListener('scrollend', () => {
+      const max = el.scrollWidth - el.clientWidth;
+      if (el.scrollLeft >= max - 4) {
+        eventModalState.calAnchor = stepDayBy(eventModalState.calAnchor, 4);
+        renderEventResultsStep();
+      } else if (el.scrollLeft <= 0) {
+        eventModalState.calAnchor = stepDayBy(eventModalState.calAnchor, -4);
+        renderEventResultsStep();
+      }
+    });
+  }
+
+  function scrollEventCalToSelected() {
+    const el = document.getElementById('eventTimelineCol');
+    if (!el) return;
+    const slot = eventModalState.results[eventModalState.selectedResultIdx];
+    const start = new Date(slot.startMs);
+    const minutesFromWindowStart = (start.getHours() * 60 + start.getMinutes()) - HOURS_START * 60;
+    el.scrollLeft = DAY_VISIBLE_PX + Math.max(0, minutesFromWindowStart) * PX_PER_MIN;
+  }
+function isoToDatetimeLocal(iso) {
     return iso.slice(0, 16);
   }
 
