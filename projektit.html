@@ -20,7 +20,19 @@
 </style>
 </head>
 <body>
-<button class="secondary" style="float:right;" onclick="logout()">Kirjaudu ulos</button>
+<div style="float:right; display:flex; align-items:center; gap:8px; position:relative;">
+  <button class="secondary" id="myProfileBtn" onclick="toggleMyProfilePanel()">Ladataan…</button>
+  <button class="secondary" onclick="logout()">Kirjaudu ulos</button>
+  <div id="myProfilePanel" style="display:none; position:absolute; top:44px; right:0; width:260px; background:#fff; border:1px solid #DBDFE5; border-radius:10px; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,0.08); z-index:5; text-align:left;">
+    <div style="font-weight:600; font-size:14px;" id="panelName"></div>
+    <div style="color:#586174; font-size:12.5px; margin-top:2px;" id="panelEmail"></div>
+    <div style="color:#586174; font-size:12.5px; margin-top:2px;" id="panelOrg"></div>
+    <div style="display:inline-block; margin-top:8px; padding:3px 10px; border-radius:999px; font-size:11px; background:#E1E6EF; color:#2A4B7C;" id="panelRole"></div>
+    <div style="margin-top:14px;">
+      <a href="/oma-profiili.html" style="color:#2A4B7C; font-size:13px; text-decoration:underline;">Omat asetukset</a>
+    </div>
+  </div>
+</div>
 <h1>Omat projektit</h1>
 <div id="adminLinkWrap"></div>
 <a class="back" href="/uusiprojekti.html" style="display:inline-block; background:#2A4B7C; color:#fff; padding:9px 16px; border-radius:8px; font-size:14px; text-decoration:none; margin-bottom:20px;">+ Uusi projekti</a>
@@ -55,6 +67,29 @@
     window.location.href = '/login.html';
   }
 
+async function loadMyProfileButton() {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/get-my-profile`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  const data = await res.json();
+  if (data.error) return;
+
+  const name = (data.firstName || data.lastName) ? `${data.firstName} ${data.lastName}`.trim() : data.email;
+  document.getElementById('myProfileBtn').textContent = name;
+  document.getElementById('panelName').textContent = name;
+  document.getElementById('panelEmail').textContent = data.email;
+  document.getElementById('panelOrg').textContent = data.organization || '';
+  document.getElementById('panelRole').textContent = data.roleLabel;
+}
+
+function toggleMyProfilePanel() {
+  const panel = document.getElementById('myProfilePanel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+
+  
   async function loadProjects() {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/list-projects`, {
       method: 'POST',
@@ -103,7 +138,11 @@
 
   (async () => {
     const ok = await ensureLoggedIn();
-    if (ok) loadProjects();
+    if (ok) {
+      loadProjects();
+      loadMyProfileButton();
+    }
+  })();
   })();
 </script>
 </body>
