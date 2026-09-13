@@ -13,6 +13,8 @@
   button { background: #2A4B7C; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-right: 8px; }
   button:hover { background: #1D3559; }
   button.secondary { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; }
+  button.danger { background: #fff; color: #C0453A; border: 1px solid #C0453A; }
+  button.danger:hover { background: #FBE4E1; }
   .toolbar { margin: 16px 0; display: flex; justify-content: space-between; align-items: center; }
   .card { background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; cursor: pointer; }
   .card:hover { border-color: #2A4B7C; }
@@ -36,6 +38,8 @@
   .project-card:hover { border-color: #2A4B7C; }
   .project-card .name { font-weight: 600; font-size: 14px; }
   .project-card .meta { color: #8A93A3; font-size: 12px; margin-top: 3px; }
+
+  .danger-zone { border-top: 1px solid #EEF1F4; margin-top: 20px; padding-top: 16px; }
 </style>
 </head>
 <body>
@@ -54,9 +58,9 @@
 
   let currentAccessToken = null;
   let organizations = [];
-  let creating = false;
   let superuserEmails = [''];
   let memberEmails = [''];
+  let editingOrgId = null;
 
   function authHeaders() {
     return {
@@ -93,7 +97,7 @@
   }
 
   function renderList() {
-    creating = false;
+    editingOrgId = null;
     const app = document.getElementById('app');
 
     let listHtml = '';
@@ -124,14 +128,15 @@
   }
 
   function showCreateForm() {
-    creating = true;
+    editingOrgId = null;
     superuserEmails = [''];
     memberEmails = [''];
-    renderCreateForm();
+    renderOrgForm({ name: '', access_mode: 'restricted', email_domain: '' });
   }
 
-  function renderCreateForm() {
+  function renderOrgForm(org) {
     const app = document.getElementById('app');
+    const isEdit = !!editingOrgId;
 
     const superuserRows = superuserEmails.map((val, idx) => `
       <div class="repeat-row">
@@ -149,20 +154,20 @@
 
     app.innerHTML = `
       <div class="form-section">
-        <h3 style="margin-top:0;">Uusi asiakkuus</h3>
+        <h3 style="margin-top:0;">${isEdit ? 'Muokkaa asiakkuutta' : 'Uusi asiakkuus'}</h3>
 
         <label>Asiakkuuden nimi</label>
-        <input type="text" id="orgName" placeholder="esim. KPMG" />
+        <input type="text" id="orgName" value="${org.name}" />
 
         <label>Käyttöoikeuden laajuus</label>
         <div class="radio-row">
-          <label><input type="radio" name="accessMode" value="restricted" checked onchange="toggleDomainField()" /> Vain listatut käyttäjät</label>
-          <label><input type="radio" name="accessMode" value="domain" onchange="toggleDomainField()" /> Koko domain</label>
+          <label><input type="radio" name="accessMode" value="restricted" ${org.access_mode !== 'domain' ? 'checked' : ''} onchange="toggleDomainField()" /> Vain listatut käyttäjät</label>
+          <label><input type="radio" name="accessMode" value="domain" ${org.access_mode === 'domain' ? 'checked' : ''} onchange="toggleDomainField()" /> Koko domain</label>
         </div>
 
-        <div id="domainFieldWrap" style="display:none;">
+        <div id="domainFieldWrap" style="display:${org.access_mode === 'domain' ? 'block' : 'none'};">
           <label>Sähköpostin verkkotunnus</label>
-          <input type="text" id="emailDomain" placeholder="esim. kpmg.fi" />
+          <input type="text" id="emailDomain" value="${org.email_domain || ''}" />
         </div>
 
         <label>Pääkäyttäjät</label>
@@ -175,8 +180,14 @@
 
         <div style="margin-top:20px;">
           <button class="secondary" onclick="renderList()">Peruuta</button>
-          <button onclick="submitOrganization()">Luo asiakkuus</button>
+          <button onclick="${isEdit ? 'submitOrganizationEdit()' : 'submitOrganization()'}">${isEdit ? 'Tallenna muutokset' : 'Luo asiakkuus'}</button>
         </div>
+
+        ${isEdit ? `
+          <div class="danger-zone">
+            <button class="danger" type="button" onclick="deleteOrganization()">Poista asiakkuus</button>
+          </div>
+        ` : ''}
       </div>
     `;
   }
@@ -186,13 +197,27 @@
     document.getElementById('domainFieldWrap').style.display = mode === 'domain' ? 'block' : 'none';
   }
 
-  function addSuperuser() { superuserEmails.push(''); renderCreateForm(); }
-  function removeSuperuser(idx) { superuserEmails.splice(idx, 1); if (superuserEmails.length === 0) superuserEmails = ['']; renderCreateForm(); }
+  function addSuperuser() { superuserEmails.push(''); rerenderCurrentForm(); }
+  function removeSuperuser(idx) { superuserEmails.splice(idx, 1); if (superuserEmails.length === 0) superuserEmails = ['']; rerenderCurrentForm(); }
   function updateSuperuser(idx, val) { superuserEmails[idx] = val; }
 
-  function addMember() { memberEmails.push(''); renderCreateForm(); }
-  function removeMember(idx) { memberEmails.splice(idx, 1); if (memberEmails.length === 0) memberEmails = ['']; renderCreateForm(); }
+  function addMember() { memberEmails.push(''); rerenderCurrentForm(); }
+  function removeMember(idx) { memberEmails.splice(idx, 1); if (memberEmails.length === 0) memberEmails = ['']; rerenderCurrentForm(); }
   function updateMember(idx, val) { memberEmails[idx] = val; }
+
+  function currentFormValues() {
+    return {
+      name: document.getElementById('orgName').value,
+      access_mode: document.querySelector('input[name="accessMode"]:checked').value,
+      email_domain: document.getElementById('emailDomain') ? document.getElementById('emailDomain').value : '',
+    };
+  }
+
+  function rerenderCurrentForm() {
+    // Säilytetään jo kirjoitetut nimi/domain-kentät kesken listan muokkauksen.
+    const values = currentFormValues();
+    renderOrgForm(values);
+  }
 
   async function submitOrganization() {
     const name = document.getElementById('orgName').value.trim();
@@ -217,16 +242,73 @@
     await loadOrganizations();
   }
 
+  async function submitOrganizationEdit() {
+    const name = document.getElementById('orgName').value.trim();
+    const accessMode = document.querySelector('input[name="accessMode"]:checked').value;
+    const emailDomain = accessMode === 'domain' ? document.getElementById('emailDomain').value.trim() : null;
+    const superusers = superuserEmails.map((e) => e.trim()).filter((e) => e !== '');
+    const members = memberEmails.map((e) => e.trim()).filter((e) => e !== '');
+
+    if (!name) { alert('Anna asiakkuuden nimi.'); return; }
+    if (superusers.length === 0) { alert('Vähintään yksi pääkäyttäjä vaaditaan.'); return; }
+    if (accessMode === 'domain' && !emailDomain) { alert('Anna sähköpostin verkkotunnus.'); return; }
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/update-organization`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ organizationId: editingOrgId, name, accessMode, emailDomain, superusers, members }),
+    });
+    const data = await res.json();
+
+    if (data.error) { alert('Virhe: ' + data.error); return; }
+
+    await loadOrganizations();
+  }
+
+  async function deleteOrganization() {
+    const org = organizations.find((o) => o.id === editingOrgId);
+    if (!org) return;
+
+    const confirm1 = confirm(`Poistetaanko asiakkuus "${org.name}" pysyvästi? Tätä ei voi perua.`);
+    if (!confirm1) return;
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/delete-organization`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ organizationId: editingOrgId }),
+    });
+    const data = await res.json();
+
+    if (data.error) { alert('Virhe: ' + data.error); return; }
+
+    await loadOrganizations();
+  }
+
+  function startEditOrganization() {
+    const org = organizations.find((o) => o.id === editingOrgId);
+    if (!org) return;
+
+    superuserEmails = org.members.filter((m) => m.role === 'superuser').map((m) => m.email);
+    if (superuserEmails.length === 0) superuserEmails = [''];
+
+    memberEmails = org.members.filter((m) => m.role !== 'superuser').map((m) => m.email);
+    if (memberEmails.length === 0) memberEmails = [''];
+
+    renderOrgForm(org);
+  }
+
   async function openOrganization(orgId) {
     const org = organizations.find((o) => o.id === orgId);
     if (!org) return;
+    editingOrgId = orgId;
 
     const app = document.getElementById('app');
     app.innerHTML = `
       <a class="back" href="#" onclick="renderList(); return false;">&larr; Kaikki asiakkaat</a>
       <h1 style="margin-top:10px;">${org.name}</h1>
       <p class="sub">Pääkäyttäjät: ${org.members.filter((m) => m.role === 'superuser').map((m) => m.email).join(', ') || '–'}</p>
-      <h3>Projektit</h3>
+      <button class="secondary" onclick="startEditOrganization()">Muokkaa asiakkuutta</button>
+      <h3 style="margin-top:20px;">Projektit</h3>
       <div id="orgProjects">Ladataan…</div>
     `;
 
