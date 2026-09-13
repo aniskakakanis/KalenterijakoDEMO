@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Yhteisikkuna — Oma profiili</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 640px; margin: 40px auto; padding: 0 20px 60px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  h3 { font-size: 14px; margin: 24px 0 10px; }
+  p.sub { color: #586174; font-size: 14px; margin-top: 0; }
+  a.back { font-size: 13px; color: #2A4B7C; text-decoration: none; }
+  button { background: #2A4B7C; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-right: 8px; }
+  button:hover { background: #1D3559; }
+  button.secondary { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; }
+  button.danger { background: #fff; color: #C0453A; border: 1px solid #C0453A; padding: 6px 12px; font-size: 12.5px; margin: 0; }
+  button.danger:hover { background: #FBE4E1; }
+  button.small { padding: 6px 12px; font-size: 12.5px; margin: 0; }
+
+  .card { background: #fff; border: 1px solid #DBDFE5; border-radius: 12px; padding: 18px 20px; margin-bottom: 20px; }
+  .role-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; background: #E1E6EF; color: #2A4B7C; margin-bottom: 12px; }
+
+  label { display: block; font-size: 13px; color: #586174; margin: 10px 0 4px; }
+  input[type=text] { width: 100%; padding: 8px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 14px; box-sizing: border-box; }
+
+  .project-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-top: 1px solid #EEF1F4; }
+  .project-row:first-child { border-top: none; }
+  .project-row .info { font-size: 13.5px; }
+  .project-row .meta { color: #8A93A3; font-size: 12px; margin-top: 2px; }
+  .status-ok { color: #1E6B3C; font-size: 12px; }
+  .status-warn { color: #C0453A; font-size: 12px; font-weight: 600; }
+  .status-pending { color: #91600C; font-size: 12px; }
+
+  .empty-note { color: #8A93A3; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<a class="back" href="/projektit.html">&larr; Omat projektit</a>
+<h1>Oma profiili</h1>
+
+<div class="card" id="profileCard">Ladataan…</div>
+
+<h3>Kalenterivaltuutukset projekteittain</h3>
+<div class="card" id="projectsCard">Ladataan…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
+  const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ycmh2Ynh2a2l6dmtjd3dnbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0NjU3NDAsImV4cCI6MjEwMzA0MTc0MH0.S_M4KyTt4E_UG0ue-T-h89L17yxJKkmb36ZzNRdQnLI";
+  const client = supabase.createClient(SUPABASE_URL, ANON_KEY);
+
+  const CLIENT_ID = "54f922c6-aa24-44b4-9305-f28964c09f96";
+  const CALENDAR_REDIRECT_URI = "https://nrrhvbxvkizvkcwwglck.supabase.co/functions/v1/auth-callback";
+
+  let currentAccessToken = null;
+
+  function authHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'apikey': ANON_KEY,
+      'Authorization': 'Bearer ' + currentAccessToken,
+    };
+  }
+
+  async function ensureLoggedIn() {
+    const { data: { session } } = await client.auth.getSession();
+    if (!session) {
+      window.location.href = '/login.html';
+      return false;
+    }
+    currentAccessToken = session.access_token;
+    return true;
+  }
+
+  async function loadProfile() {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/get-my-profile`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      document.getElementById('profileCard').innerHTML = `<p class="empty-note">Virhe: ${data.error}</p>`;
+      return;
+    }
+
+    document.getElementById('profileCard').innerHTML = `
+      <div class="role-badge">${data.roleLabel}</div>
+      <label style="margin-top:0;">Etunimi</label>
+      <input type="text" id="firstNameInput" value="${data.firstName}" />
+      <label>Sukunimi</label>
+      <input type="text" id="lastNameInput" value="${data.lastName}" />
+      <label>Titteli</label>
+      <input type="text" id="titleInput" value="${data.title}" />
+      <label>Organisaatio</label>
+      <input type="text" id="organizationInput" value="${data.organization}" />
+      <label>Sähköposti</label>
+      <input type="text" value="${data.email}" disabled />
+      <div style="margin-top:16px;">
+        <button onclick="saveProfile()">Tallenna</button>
+      </div>
+    `;
+  }
+
+  async function saveProfile() {
+    const body = {
+      firstName: document.getElementById('firstNameInput').value,
+      lastName: document.getElementById('lastNameInput').value,
+      title: document.getElementById('titleInput').value,
+      organization: document.getElementById('organizationInput').value,
+    };
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/update-my-profile`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      alert('Virhe: ' + data.error);
+      return;
+    }
+
+    alert('Tiedot tallennettu.');
+  }
+
+  function statusLabel(status) {
+    if (status === 'authorized') return { text: 'Valtuutettu', cls: 'status-ok' };
+    if (status === 'expired') return { text: 'Vanhentunut', cls: 'status-warn' };
+    return { text: 'Ei valtuutettu', cls: 'status-pending' };
+  }
+
+  async function loadProjects() {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/get-my-projects`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    const data = await res.json();
+
+    const card = document.getElementById('projectsCard');
+
+    if (data.error) {
+      card.innerHTML = `<p class="empty-note">Virhe: ${data.error}</p>`;
+      return;
+    }
+
+    if (!data.projects || data.projects.length === 0) {
+      card.innerHTML = '<p class="empty-note">Et ole vielä minkään projektin osallistuja.</p>';
+      return;
+    }
+
+    card.innerHTML = data.projects.map((p) => {
+      const st = statusLabel(p.status);
+      const orgPart = p.organizationName ? `${p.organizationName} / ` : '';
+      const roleLabel = p.role === 'admin' ? 'Pääkäyttäjä' : 'Vieras';
+
+      let actionHtml = '';
+      if (p.status === 'authorized') {
+        actionHtml = `<button class="danger" onclick="revokeAuth('${p.projectId}')">Poista valtuutus</button>`;
+      } else if (p.status === 'expired') {
+        actionHtml = `<button class="small" onclick="startAuth('${p.participantId}')">Hae uudestaan</button>`;
+      } else {
+        actionHtml = `<button class="small" onclick="startAuth('${p.participantId}')">Anna lupa</button>`;
+      }
+
+      return `
+        <div class="project-row">
+          <div>
+            <div class="info">${orgPart}${p.projectName} — ${roleLabel}</div>
+            <div class="meta ${st.cls}">${st.text}</div>
+          </div>
+          ${actionHtml}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function startAuth(participantId) {
+    const authUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
+    authUrl.searchParams.set('client_id', CLIENT_ID);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('redirect_uri', CALENDAR_REDIRECT_URI);
+    authUrl.searchParams.set('response_mode', 'query');
+    authUrl.searchParams.set('scope', 'User.Read Calendars.Read offline_access');
+    authUrl.searchParams.set('state', participantId);
+    window.location.href = authUrl.toString();
+  }
+
+  async function revokeAuth(projectId) {
+    if (!confirm('Poistetaanko kalenterivaltuutus tälle projektille? Muut eivät voi enää nähdä aikataulujasi siinä, ennen kuin annat luvan uudelleen.')) return;
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/revoke-calendar-authorization`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ projectId }),
+    });
+    const data = await res.json();
+    if (data.error) { alert('Virhe: ' + data.error); return; }
+
+    loadProjects();
+  }
+
+  (async () => {
+    const ok = await ensureLoggedIn();
+    if (ok) {
+      loadProfile();
+      loadProjects();
+    }
+  })();
+</script>
+
+</body>
+</html>
