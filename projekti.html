@@ -19,6 +19,8 @@
   .toolbar .fetched { font-size: 12px; color: #8A93A3; margin-left: 4px; }
   #inviteResult { margin: 10px 0 16px; font-size: 13px; word-break: break-all; }
 
+  .topbar { display: flex; justify-content: space-between; align-items: flex-start; }
+
   .date-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; font-size: 13px; color: #586174; background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 10px 14px; flex-wrap: wrap; }
   .date-bar input[type=date], .date-bar input[type=time] { border: 1px solid #DBDFE5; border-radius: 6px; padding: 5px 7px; font-size: 13px; }
   .date-bar .today-btn { padding: 5px 10px; font-size: 12px; margin: 0; }
@@ -145,32 +147,56 @@
 
   .event-mini-board { border: 1px solid #DBDFE5; border-radius: 10px; padding: 12px 14px; margin-top: 6px; }
   .event-mini-names { width: 160px; flex: 0 0 160px; }
+
+  .lang-picker { margin-top: 14px; padding-top: 12px; border-top: 1px solid #EEF1F4; font-size: 12.5px; color: #586174; }
+  .lang-btn { background: none; border: 1px solid #DBDFE5; color: #2A4B7C; padding: 4px 10px; font-size: 12px; margin: 6px 4px 0 0; border-radius: 999px; cursor: pointer; }
+  .lang-btn.active { background: #2A4B7C; color: #fff; border-color: #2A4B7C; }
 </style>
 </head>
 <body>
 
-<button class="secondary" style="float:right;" onclick="logout()">Kirjaudu ulos</button>
-<a class="back" href="/projektit.html">&larr; Kaikki projektit</a>
-<h1 id="projectName">Ladataan projektia…</h1>
-<p class="sub" id="projectOwner"></p>
+<div class="topbar">
+  <div>
+    <a class="back" href="/projektit.html">&larr; <span data-i18n="back_all_projects"></span></a>
+    <h1 id="projectName">Ladataan projektia…</h1>
+    <p class="sub" id="projectOwner"></p>
+  </div>
+  <div style="display:flex; align-items:center; gap:8px; position:relative;">
+    <button class="secondary" id="myProfileBtn" onclick="toggleMyProfilePanel()" data-i18n="loading"></button>
+    <button class="secondary" onclick="logout()" data-i18n="logout"></button>
+    <div id="myProfilePanel" style="display:none; position:absolute; top:44px; right:0; width:260px; background:#fff; border:1px solid #DBDFE5; border-radius:10px; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,0.08); z-index:5; text-align:left;">
+      <div style="font-weight:600; font-size:14px;" id="panelName"></div>
+      <div style="color:#586174; font-size:12.5px; margin-top:2px;" id="panelEmail"></div>
+      <div style="color:#586174; font-size:12.5px; margin-top:2px;" id="panelOrg"></div>
+      <div style="display:inline-block; margin-top:8px; padding:3px 10px; border-radius:999px; font-size:11px; background:#E1E6EF; color:#2A4B7C;" id="panelRole"></div>
+      <div style="margin-top:14px;">
+        <a href="/oma-profiili.html" style="color:#2A4B7C; font-size:13px; text-decoration:underline;" data-i18n="my_settings"></a>
+      </div>
+      <div class="lang-picker">
+        <span data-i18n="language_label"></span>
+        <div id="langButtons"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="toolbar">
-  <button onclick="openGroupModal()">+ Uusi ryhmä</button>
-  <button onclick="addParticipant()">+ Lisää osallistuja</button>
-  <button onclick="openCreateEventModal()">+ Luo uusi tapahtuma</button>
-  <button class="secondary" onclick="refreshSchedules()">Päivitä aikataulut</button>
-  <button class="secondary" onclick="openSettingsModal()">Asetukset</button>
+  <button onclick="openGroupModal()" data-i18n="btn_new_group"></button>
+  <button onclick="addParticipant()" data-i18n="btn_add_participant"></button>
+  <button onclick="openCreateEventModal()" data-i18n="btn_new_event"></button>
+  <button class="secondary" onclick="refreshSchedules()" data-i18n="btn_refresh_schedules"></button>
+  <button class="secondary" onclick="openSettingsModal()" data-i18n="btn_settings"></button>
   <span class="fetched" id="fetchedSummary"></span>
 </div>
 <div id="inviteResult"></div>
 
 <div class="date-bar">
-  <span>Näytettävä päivä</span>
+  <span data-i18n="show_date"></span>
   <input type="date" id="viewDate" onchange="onViewDateChange()" />
-  <button type="button" class="secondary today-btn" onclick="jumpToToday()">Tänään</button>
-  <span style="margin-left:12px;">Siirry ajankohtaan</span>
+  <button type="button" class="secondary today-btn" onclick="jumpToToday()" data-i18n="today"></button>
+  <span style="margin-left:12px;" data-i18n="jump_to_time"></span>
   <input type="time" id="jumpTime" step="1800" />
-  <button type="button" class="secondary today-btn" onclick="jumpToTime()">Siirry</button>
+  <button type="button" class="secondary today-btn" onclick="jumpToTime()" data-i18n="jump"></button>
 </div>
 
 <div class="board">
@@ -187,13 +213,14 @@
   </div>
 
   <div class="legend">
-    <span><span class="swatch busy"></span>Varattu</span>
-    <span><span class="swatch free"></span>Vapaa</span>
+    <span><span class="swatch busy"></span><span data-i18n="legend_busy"></span></span>
+    <span><span class="swatch free"></span><span data-i18n="legend_free"></span></span>
   </div>
 </div>
 
 <div id="modalHost"></div>
 
+<script src="/translations.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const paramsUrl = new URLSearchParams(window.location.search);
@@ -206,16 +233,24 @@ const paramsUrl = new URLSearchParams(window.location.search);
   const HOUR_PX = 80;
   const PX_PER_MIN = HOUR_PX / 60;
   const BUFFER_DAYS = 5;
-  const WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
-  const WEEKDAY_FULL = ['maanantai', 'tiistai', 'keskiviikko', 'torstai', 'perjantai', 'lauantai', 'sunnuntai'];
-  const MONTH_FULL = ['tammikuuta', 'helmikuuta', 'maaliskuuta', 'huhtikuuta', 'toukokuuta', 'kesäkuuta', 'heinäkuuta', 'elokuuta', 'syyskuuta', 'lokakuuta', 'marraskuuta', 'joulukuuta'];
+
+  function weekdayShortArr() {
+    return ['weekday_short_mon','weekday_short_tue','weekday_short_wed','weekday_short_thu','weekday_short_fri','weekday_short_sat','weekday_short_sun'].map((k) => t(k));
+  }
+  function weekdayFullArr() {
+    return ['weekday_full_mon','weekday_full_tue','weekday_full_wed','weekday_full_thu','weekday_full_fri','weekday_full_sat','weekday_full_sun'].map((k) => t(k));
+  }
+  function monthFullArr() {
+    const arr = [];
+    for (let i = 1; i <= 12; i++) arr.push(t('month_' + i));
+    return arr;
+  }
 
   const CLIENT_ID = "54f922c6-aa24-44b4-9305-f28964c09f96";
   const CALENDAR_REDIRECT_URI = "https://nrrhvbxvkizvkcwwglck.supabase.co/functions/v1/auth-callback";
 
-  let viewPrefs = JSON.parse(localStorage.getItem('yhteisikkuna_viewPrefs') || '{}');
-  let dayRangeMode = viewPrefs.dayRangeMode || 'full';
-  let hideWeekends = !!viewPrefs.hideWeekends;
+  let dayRangeMode = 'full';
+  let hideWeekends = false;
 
   let HOURS_START = 0;
   let HOURS_END = 24;
@@ -226,7 +261,14 @@ const paramsUrl = new URLSearchParams(window.location.search);
     else { HOURS_START = 0; HOURS_END = 24; }
     DAY_VISIBLE_PX = (HOURS_END - HOURS_START) * HOUR_PX;
   }
-  computeHoursWindow();
+
+  function loadViewPrefsFromStorage() {
+    const viewPrefs = JSON.parse(localStorage.getItem('yhteisikkuna_viewPrefs') || '{}');
+    dayRangeMode = viewPrefs.dayRangeMode || 'full';
+    hideWeekends = !!viewPrefs.hideWeekends;
+    computeHoursWindow();
+  }
+  loadViewPrefsFromStorage();
 
   function saveViewPrefs() {
     localStorage.setItem('yhteisikkuna_viewPrefs', JSON.stringify({ dayRangeMode, hideWeekends }));
@@ -255,6 +297,7 @@ const paramsUrl = new URLSearchParams(window.location.search);
   let expiredPopupShown = false;
   let newGroupState = { selectedIds: new Set(), visibility: 'private', name: '' };
   let eventModalState = null;
+  let myProfileData = null;
 
   let sectionCollapsed = { people: false, owngroups: false, projectgroups: false };
 
@@ -279,6 +322,61 @@ const paramsUrl = new URLSearchParams(window.location.search);
   async function logout() {
     await client.auth.signOut();
     window.location.href = '/login.html';
+  }
+
+  function renderLangButtons() {
+    const current = getCurrentLanguage();
+    document.getElementById('langButtons').innerHTML = `
+      <button class="lang-btn ${current === 'fi' ? 'active' : ''}" onclick="setLanguagePref('fi')">${t('language_fi')}</button>
+      <button class="lang-btn ${current === 'en' ? 'active' : ''}" onclick="setLanguagePref('en')">${t('language_en')}</button>
+    `;
+  }
+
+  async function setLanguagePref(lang) {
+    setCurrentLanguage(lang);
+    if (myProfileData) {
+      await fetch(`${SUPABASE_URL}/functions/v1/update-my-profile`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          firstName: myProfileData.firstName,
+          lastName: myProfileData.lastName,
+          title: myProfileData.title,
+          organization: myProfileData.organization,
+          language: lang,
+        }),
+      });
+    }
+    window.location.reload();
+  }
+
+  async function loadMyProfileAndTranslations() {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/get-my-profile`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    const data = await res.json();
+    if (data.error) {
+      applyStaticTranslations();
+      return;
+    }
+
+    myProfileData = data;
+    setCurrentLanguage(data.language || 'fi');
+    applyStaticTranslations();
+    renderLangButtons();
+
+    const name = (data.firstName || data.lastName) ? `${data.firstName} ${data.lastName}`.trim() : data.email;
+    document.getElementById('myProfileBtn').textContent = name;
+    document.getElementById('panelName').textContent = name;
+    document.getElementById('panelEmail').textContent = data.email;
+    document.getElementById('panelOrg').textContent = data.organization || '';
+    document.getElementById('panelRole').textContent = t(data.roleKey);
+  }
+
+  function toggleMyProfilePanel() {
+    const panel = document.getElementById('myProfilePanel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
   }
 
   function toDateStr(d) {
@@ -322,10 +420,11 @@ function bufferDates(anchor) {
 
   function rulerHtml(anchor) {
     const dates = bufferDates(anchor);
+    const wdShort = weekdayShortArr();
     let html = '';
     dates.forEach((dateStr, i) => {
       const d = new Date(dateStr + 'T00:00:00');
-      const label = WEEKDAY_LABELS[(d.getDay() + 6) % 7] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '.';
+      const label = wdShort[(d.getDay() + 6) % 7] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '.';
       html += `<div class="day-label" style="left:${i * DAY_VISIBLE_PX}px; width:${DAY_VISIBLE_PX}px;">${label}</div>`;
       for (let h = HOURS_START; h <= HOURS_END; h++) {
         const x = i * DAY_VISIBLE_PX + (h - HOURS_START) * HOUR_PX;
@@ -377,9 +476,10 @@ function bufferDates(anchor) {
 
       const leftPx = dayIdx * DAY_VISIBLE_PX + (startMin - winStart) * PX_PER_MIN;
       const widthPx = (endMin - startMin) * PX_PER_MIN;
-      const startLabel = start.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
-      const endLabel = end.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
-      html += `<div class="busy-block" style="left:${leftPx}px; width:${widthPx}px;" title="Varattu ${startLabel}–${endLabel}"></div>`;
+      const locale = getCurrentLanguage() === 'en' ? 'en-GB' : 'fi-FI';
+      const startLabel = start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+      const endLabel = end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+      html += `<div class="busy-block" style="left:${leftPx}px; width:${widthPx}px;" title="${t('legend_busy')} ${startLabel}–${endLabel}"></div>`;
     });
     return html;
   }
@@ -465,9 +565,9 @@ function bufferDates(anchor) {
     const label = nameLabelFor(p);
     const initials = initialsFor(label);
     if (p.status === 'authorized') {
-      return `<div class="avatar status-circle ok" title="Kalenteritiedot ovat ajantasalla">${initials}</div>`;
+      return `<div class="avatar status-circle ok" title="${t('calendar_tooltip_ok')}">${initials}</div>`;
     }
-    return `<div class="avatar status-circle warn" title="Kalenteritietoa ei ole jaettu">${initials}</div>`;
+    return `<div class="avatar status-circle warn" title="${t('calendar_tooltip_warn')}">${initials}</div>`;
   }
 
   function onViewDateChange() {
@@ -505,7 +605,7 @@ function bufferDates(anchor) {
   }
 async function loadStatus() {
     if (!PROJECT_ID) {
-      document.getElementById('projectName').textContent = 'Virhe: projektin id puuttuu osoitteesta';
+      document.getElementById('projectName').textContent = t('error_project_id_missing');
       return;
     }
 
@@ -517,7 +617,7 @@ async function loadStatus() {
     const data = await res.json();
 
     if (data.error) {
-      document.getElementById('projectName').textContent = 'Virhe: ' + data.error;
+      document.getElementById('projectName').textContent = t('error_prefix') + ': ' + data.error;
       return;
     }
 
@@ -542,11 +642,11 @@ async function loadStatus() {
       document.getElementById('modalHost').innerHTML = `
         <div class="modal-overlay">
           <div class="modal">
-            <h3>Kalenterivaltuutus vanhentunut</h3>
-            <p class="sub">Projektin <strong>${latestStatus.project.name}</strong> Microsoft-valtuutus on vanhentunut. Liitä kalenteri sovellukseen alta.</p>
+            <h3>${t('modal_calendar_expired')}</h3>
+            <p class="sub">${t('calendar_expired_body', { projectName: '<strong>' + latestStatus.project.name + '</strong>' })}</p>
             <div class="actions">
-              <button class="secondary" onclick="closeModal()">Sulje</button>
-              <button onclick="startCalendarAuthForParticipant('${mine.id}')">Liitä kalenteri</button>
+              <button class="secondary" onclick="closeModal()">${t('close')}</button>
+              <button onclick="startCalendarAuthForParticipant('${mine.id}')">${t('attach_calendar_btn')}</button>
             </div>
           </div>
         </div>
@@ -578,21 +678,25 @@ async function loadStatus() {
     if (!data) return;
 
     document.getElementById('projectName').textContent = data.project.name;
-    document.getElementById('projectOwner').textContent = 'Vastuuhenkilö: ' + data.project.owner_email;
+    document.getElementById('projectOwner').textContent = t('responsible_person') + ': ' + data.project.owner_email;
 
     document.getElementById('mainRuler').style.width = totalWidthPx() + 'px';
     document.getElementById('mainRuler').innerHTML = rulerHtml();
 
     const d = new Date(anchorDateStr + 'T00:00:00');
+    const wdFull = weekdayFullArr();
+    const moFull = monthFullArr();
+    const wdName = wdFull[(d.getDay() + 6) % 7];
     document.getElementById('dateTitle').textContent =
-      WEEKDAY_FULL[(d.getDay() + 6) % 7].charAt(0).toUpperCase() + WEEKDAY_FULL[(d.getDay() + 6) % 7].slice(1) +
-      ' ' + d.getDate() + '. ' + MONTH_FULL[d.getMonth()] + ' ' + d.getFullYear();
+      wdName.charAt(0).toUpperCase() + wdName.slice(1) +
+      ' ' + d.getDate() + '. ' + moFull[d.getMonth()] + ' ' + d.getFullYear();
 
     const authorized = data.participants.filter((p) => p.status === 'authorized' && p.fetchedAt);
     const fetchedEl = document.getElementById('fetchedSummary');
+    const locale = getCurrentLanguage() === 'en' ? 'en-GB' : 'fi-FI';
     fetchedEl.textContent = authorized.length === 0
-      ? 'Ei vielä haettuja aikatauluja'
-      : 'Haettu: ' + new Date(authorized.reduce((a, b) => (new Date(a.fetchedAt) > new Date(b.fetchedAt) ? a : b)).fetchedAt).toLocaleString('fi-FI');
+      ? t('no_schedules_fetched')
+      : t('fetched_at') + ': ' + new Date(authorized.reduce((a, b) => (new Date(a.fetchedAt) > new Date(b.fetchedAt) ? a : b)).fetchedAt).toLocaleString(locale);
 
     const allBusy = [];
     authorized.forEach((p) => { if (p.scheduleItems) allBusy.push(...p.scheduleItems); });
@@ -605,12 +709,12 @@ async function loadStatus() {
     namesCol.innerHTML += `
       <div class="name-row">
         ${groupAvatarHtml()}
-        <div class="who-text"><span class="name">Koko projekti</span></div>
+        <div class="who-text"><span class="name">${t('whole_project')}</span></div>
       </div>
     `;
     timelineCol.innerHTML += `<div class="timeline-row" style="width:${totalWidthPx()}px;">${timelineCellHtml(allBusy)}</div>`;
 
-    const peopleHeader = sectionHeaderPair('people', 'Projektin henkilöt', data.participants.length);
+    const peopleHeader = sectionHeaderPair('people', t('section_people'), data.participants.length);
     namesCol.innerHTML += peopleHeader.nameSide;
     timelineCol.innerHTML += peopleHeader.timelineSide;
 
@@ -628,20 +732,20 @@ async function loadStatus() {
         tRow.style.width = totalWidthPx() + 'px';
         tRow.onclick = () => openParticipantDetail(p.id);
         tRow.innerHTML = p.scheduleItems === null
-          ? '<div class="no-data">Ei vielä haettua aikataulua</div>'
+          ? `<div class="no-data">${t('no_schedule_fetched_yet')}</div>`
           : timelineCellHtml(p.scheduleItems);
         timelineCol.appendChild(tRow);
       });
     }
 
     const ownGroups = (data.groups || []).filter((g) => g.visibility === 'private' && g.isOwn);
-    const ownHeader = sectionHeaderPair('owngroups', 'Omat ryhmät', ownGroups.length);
+    const ownHeader = sectionHeaderPair('owngroups', t('section_own_groups'), ownGroups.length);
     namesCol.innerHTML += ownHeader.nameSide;
     timelineCol.innerHTML += ownHeader.timelineSide;
 
     if (!sectionCollapsed.owngroups) {
       if (ownGroups.length === 0) {
-        namesCol.innerHTML += `<div class="name-row"><span class="empty-note">Ei vielä omia ryhmiä.</span></div>`;
+        namesCol.innerHTML += `<div class="name-row"><span class="empty-note">${t('empty_no_own_groups')}</span></div>`;
         timelineCol.innerHTML += `<div class="timeline-row"></div>`;
       } else {
         ownGroups.forEach((g) => renderGroupRow(g, namesCol, timelineCol));
@@ -649,13 +753,13 @@ async function loadStatus() {
     }
 
     const projectGroups = (data.groups || []).filter((g) => g.visibility === 'project');
-    const projHeader = sectionHeaderPair('projectgroups', 'Projektin ryhmät', projectGroups.length);
+    const projHeader = sectionHeaderPair('projectgroups', t('section_project_groups'), projectGroups.length);
     namesCol.innerHTML += projHeader.nameSide;
     timelineCol.innerHTML += projHeader.timelineSide;
 
     if (!sectionCollapsed.projectgroups) {
       if (projectGroups.length === 0) {
-        namesCol.innerHTML += `<div class="name-row"><span class="empty-note">Ei vielä projektin ryhmiä.</span></div>`;
+        namesCol.innerHTML += `<div class="name-row"><span class="empty-note">${t('empty_no_project_groups')}</span></div>`;
         timelineCol.innerHTML += `<div class="timeline-row"></div>`;
       } else {
         projectGroups.forEach((g) => renderGroupRow(g, namesCol, timelineCol));
@@ -670,7 +774,7 @@ async function loadStatus() {
   }
 
   function renderGroupRow(g, namesCol, timelineCol) {
-    const visLabel = g.visibility === 'project' ? 'Projektin ryhmä' : 'Oma ryhmä';
+    const visLabel = g.visibility === 'project' ? t('project_group_label') : t('own_group_label');
     const nameDiv = document.createElement('div');
     nameDiv.className = 'name-row clickable';
     nameDiv.onclick = () => openGroupDetail(g.id);
@@ -689,7 +793,7 @@ async function loadStatus() {
   }
 
   async function addParticipant() {
-    const email = prompt('Osallistujan sähköposti:');
+    const email = prompt(t('prompt_participant_email'));
     if (!email) return;
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/invite-participant`, {
@@ -700,12 +804,12 @@ async function loadStatus() {
     const data = await res.json();
 
     if (data.error) {
-      document.getElementById('inviteResult').textContent = 'Virhe: ' + data.error;
+      document.getElementById('inviteResult').textContent = t('error_prefix') + ': ' + data.error;
       return;
     }
 
     document.getElementById('inviteResult').innerHTML =
-      'Kutsulinkki: <a href="' + data.inviteLink + '" target="_blank">' + data.inviteLink + '</a>';
+      t('invite_link_label') + ': <a href="' + data.inviteLink + '" target="_blank">' + data.inviteLink + '</a>';
 
     loadStatus();
   }
@@ -723,7 +827,7 @@ async function loadStatus() {
       .map((p) => p.id);
 
     if (authorizedIds.length === 0) {
-      alert('Ei vielä yhtään valtuutettua osallistujaa.');
+      alert(t('alert_no_authorized'));
       return;
     }
 
@@ -756,31 +860,31 @@ function openGroupModal() {
       return `
         <div class="group-select-row ${selected ? 'selected' : ''}">
           <span class="row-name">${label}</span>
-          <button type="button" class="secondary group-select-btn ${selected ? 'added' : ''}" onclick="toggleNewGroupMember('${p.id}')">${selected ? 'Valittu ✓' : 'Lisää'}</button>
+          <button type="button" class="secondary group-select-btn ${selected ? 'added' : ''}" onclick="toggleNewGroupMember('${p.id}')">${selected ? t('selected_check') : t('add_btn')}</button>
         </div>
       `;
-    }).join('') || '<p class="empty-note">Ei osallistujia.</p>';
+    }).join('') || `<p class="empty-note">${t('no_participants')}</p>`;
 
     const visibilityHtml = admin ? `
-      <label>Ryhmän näkyvyys</label>
+      <label>${t('group_visibility_label')}</label>
       <div class="visibility-pill-row">
-        <div class="visibility-pill ${newGroupState.visibility === 'private' ? 'active' : ''}" onclick="setNewGroupVisibility('private')">Oma ryhmä</div>
-        <div class="visibility-pill ${newGroupState.visibility === 'project' ? 'active' : ''}" onclick="setNewGroupVisibility('project')">Projektin ryhmä</div>
+        <div class="visibility-pill ${newGroupState.visibility === 'private' ? 'active' : ''}" onclick="setNewGroupVisibility('private')">${t('own_group_label')}</div>
+        <div class="visibility-pill ${newGroupState.visibility === 'project' ? 'active' : ''}" onclick="setNewGroupVisibility('project')">${t('project_group_label')}</div>
       </div>
     ` : '';
 
     document.getElementById('modalHost').innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="modal">
-          <h3>Uusi ryhmä</h3>
-          <label style="margin-top:0;">Ryhmän nimi</label>
-          <input type="text" id="newGroupNameInput" placeholder="esim. Johtoryhmä" value="${newGroupState.name}" oninput="newGroupState.name = this.value" />
-          <label>Valitse jäsenet</label>
+          <h3>${t('modal_new_group')}</h3>
+          <label style="margin-top:0;">${t('group_name_label')}</label>
+          <input type="text" id="newGroupNameInput" placeholder="${t('group_name_placeholder')}" value="${newGroupState.name}" oninput="newGroupState.name = this.value" />
+          <label>${t('select_members')}</label>
           <div class="group-modal-list">${rows}</div>
           ${visibilityHtml}
           <div class="actions">
-            <button class="secondary" onclick="closeModal()">Peruuta</button>
-            <button onclick="submitNewGroup()">Luo ryhmä</button>
+            <button class="secondary" onclick="closeModal()">${t('cancel')}</button>
+            <button onclick="submitNewGroup()">${t('create_group')}</button>
           </div>
         </div>
       </div>
@@ -800,8 +904,8 @@ function openGroupModal() {
 
   async function submitNewGroup() {
     const name = newGroupState.name.trim();
-    if (!name) { alert('Anna ryhmälle nimi.'); return; }
-    if (newGroupState.selectedIds.size === 0) { alert('Valitse vähintään yksi jäsen.'); return; }
+    if (!name) { alert(t('alert_group_name_required')); return; }
+    if (newGroupState.selectedIds.size === 0) { alert(t('alert_group_member_required')); return; }
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/create-group`, {
       method: 'POST',
@@ -814,7 +918,7 @@ function openGroupModal() {
       }),
     });
     const data = await res.json();
-    if (data.error) { alert('Virhe: ' + data.error); return; }
+    if (data.error) { alert(t('error_prefix') + ': ' + data.error); return; }
 
     closeModal();
     loadStatus();
@@ -838,7 +942,7 @@ function openGroupModal() {
         ? `<button class="remove-x" onclick="removeGroupMember('${groupId}', '${m.participantId}')">✕</button>`
         : '';
       return `<div class="member-line"><span>${label}</span>${removeBtn}</div>`;
-    }).join('') || '<p class="empty-note">Ei jäseniä.</p>';
+    }).join('') || `<p class="empty-note">${t('no_members')}</p>`;
 
     let addRowHtml = '';
     if (editable) {
@@ -851,10 +955,10 @@ function openGroupModal() {
         ? `
           <div class="add-member-row">
             <select id="addMemberSelect">${availableOptions}</select>
-            <button onclick="addGroupMember('${groupId}')">Lisää jäsen</button>
+            <button onclick="addGroupMember('${groupId}')">${t('add_member')}</button>
           </div>
         `
-        : '<p class="empty-note">Kaikki projektin jäsenet ovat jo tässä ryhmässä.</p>';
+        : `<p class="empty-note">${t('all_members_in_group')}</p>`;
     }
 
     document.getElementById('modalHost').innerHTML = `
@@ -864,7 +968,7 @@ function openGroupModal() {
           <div>${memberLinesHtml}</div>
           ${addRowHtml}
           <div class="actions">
-            <button class="secondary" onclick="closeModal()">Sulje</button>
+            <button class="secondary" onclick="closeModal()">${t('close')}</button>
           </div>
         </div>
       </div>
@@ -883,7 +987,7 @@ function openGroupModal() {
   async function removeGroupMember(groupId, participantId) {
     const data = await callUpdateGroupMembers(groupId, participantId, 'remove');
     if (data.error) {
-      alert('Virhe: ' + data.error);
+      alert(t('error_prefix') + ': ' + data.error);
       return;
     }
     await loadStatus();
@@ -895,7 +999,7 @@ function openGroupModal() {
     if (!select || !select.value) return;
     const data = await callUpdateGroupMembers(groupId, select.value, 'add');
     if (data.error) {
-      alert('Virhe: ' + data.error);
+      alert(t('error_prefix') + ': ' + data.error);
       return;
     }
     await loadStatus();
@@ -906,23 +1010,23 @@ function openGroupModal() {
     const p = latestStatus.participants.find((x) => x.id === participantId);
     if (!p) return;
 
-    const statusLabel = p.status === 'authorized' ? 'Valtuutettu'
-      : p.status === 'expired' ? 'Vanhentunut'
-      : 'Odottaa';
+    const statusLabel = p.status === 'authorized' ? t('cal_status_authorized')
+      : p.status === 'expired' ? t('cal_status_expired')
+      : t('cal_status_pending');
 
-    const roleLabel = p.role === 'admin' ? 'Pääkäyttäjä' : 'Vieras';
+    const roleLabel = p.role === 'admin' ? t('role_admin') : t('role_guest');
 
     document.getElementById('modalHost').innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="modal">
           <h3>${nameLabelFor(p)}</h3>
-          <div class="member-line"><span>Titteli</span><span>${p.title || '–'}</span></div>
-          <div class="member-line"><span>Organisaatio</span><span>${p.organization || '–'}</span></div>
-          <div class="member-line"><span>Sähköposti</span><span>${p.email}</span></div>
-          <div class="member-line"><span>Rooli</span><span>${roleLabel}</span></div>
-          <div class="member-line"><span>Kalenterin tila</span><span>${statusLabel}</span></div>
+          <div class="member-line"><span>${t('title_label')}</span><span>${p.title || '–'}</span></div>
+          <div class="member-line"><span>${t('organization_label')}</span><span>${p.organization || '–'}</span></div>
+          <div class="member-line"><span>${t('email_label')}</span><span>${p.email}</span></div>
+          <div class="member-line"><span>${t('role_label')}</span><span>${roleLabel}</span></div>
+          <div class="member-line"><span>${t('calendar_status_label')}</span><span>${statusLabel}</span></div>
           <div class="actions">
-            <button class="secondary" onclick="closeModal()">Sulje</button>
+            <button class="secondary" onclick="closeModal()">${t('close')}</button>
           </div>
         </div>
       </div>
@@ -972,12 +1076,12 @@ function openCreateEventModal() {
         <div class="group-select-row ${role ? 'selected' : ''}">
           <span class="row-name">${label}</span>
           <div style="display:flex; gap:6px;">
-            <button type="button" class="secondary group-select-btn ${role === 'required' ? 'added' : ''}" onclick="setEventPersonRole('${p.id}','required')">Pakollinen</button>
-            <button type="button" class="secondary group-select-btn ${role === 'optional' ? 'added' : ''}" onclick="setEventPersonRole('${p.id}','optional')">Valinnainen</button>
+            <button type="button" class="secondary group-select-btn ${role === 'required' ? 'added' : ''}" onclick="setEventPersonRole('${p.id}','required')">${t('required_btn')}</button>
+            <button type="button" class="secondary group-select-btn ${role === 'optional' ? 'added' : ''}" onclick="setEventPersonRole('${p.id}','optional')">${t('optional_btn')}</button>
           </div>
         </div>
       `;
-    }).join('') || '<p class="empty-note">Ei osallistujia.</p>';
+    }).join('') || `<p class="empty-note">${t('no_participants')}</p>`;
 
     const allGroups = (latestStatus.groups || []);
     const groupRows = allGroups.map((g) => {
@@ -986,49 +1090,49 @@ function openCreateEventModal() {
         <div class="group-select-row ${role ? 'selected' : ''}">
           <span class="row-name">${g.name}</span>
           <div style="display:flex; gap:6px;">
-            <button type="button" class="secondary group-select-btn ${role === 'required' ? 'added' : ''}" onclick="setEventGroupRole('${g.id}','required')">Pakollinen</button>
-            <button type="button" class="secondary group-select-btn ${role === 'optional' ? 'added' : ''}" onclick="setEventGroupRole('${g.id}','optional')">Valinnainen</button>
+            <button type="button" class="secondary group-select-btn ${role === 'required' ? 'added' : ''}" onclick="setEventGroupRole('${g.id}','required')">${t('required_btn')}</button>
+            <button type="button" class="secondary group-select-btn ${role === 'optional' ? 'added' : ''}" onclick="setEventGroupRole('${g.id}','optional')">${t('optional_btn')}</button>
           </div>
         </div>
       `;
-    }).join('') || '<p class="empty-note">Ei ryhmiä.</p>';
+    }).join('') || `<p class="empty-note">${t('no_groups')}</p>`;
 
     document.getElementById('modalHost').innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="modal event-modal">
-          <h3>Luo uusi tapahtuma</h3>
+          <h3>${t('modal_new_event')}</h3>
 
-          <label style="margin-top:0;">Kesto (minuuttia)</label>
+          <label style="margin-top:0;">${t('duration_minutes_label')}</label>
           <input type="number" min="5" step="5" value="${s.duration}" oninput="setEventDuration(this.value)" />
 
           <div class="event-two-col" style="margin-top:14px;">
             <div>
-              <label style="margin-top:0;">Henkilöt</label>
+              <label style="margin-top:0;">${t('people_label')}</label>
               <div class="group-modal-list">${peopleRows}</div>
             </div>
             <div>
-              <label style="margin-top:0;">Ryhmät</label>
+              <label style="margin-top:0;">${t('groups_label')}</label>
               <div class="group-modal-list">${groupRows}</div>
             </div>
           </div>
 
-          <label>Järjestä tapahtuma välillä</label>
+          <label>${t('schedule_between_label')}</label>
           <div class="event-range-row">
-            <input type="datetime-local" value="${s.rangeFrom}" oninput="eventModalState.rangeFrom = this.value" placeholder="Alkaen (valinnainen)" />
+            <input type="datetime-local" value="${s.rangeFrom}" oninput="eventModalState.rangeFrom = this.value" />
             <span>–</span>
-            <input type="datetime-local" value="${s.rangeTo}" oninput="eventModalState.rangeTo = this.value" placeholder="Päättyen (valinnainen)" />
+            <input type="datetime-local" value="${s.rangeTo}" oninput="eventModalState.rangeTo = this.value" />
           </div>
 
-          <label>Preferoi kellonaikaa (valinnainen)</label>
+          <label>${t('prefer_time_label')}</label>
           <div class="pref-row">
-            <label><input type="checkbox" ${s.preferMorning ? 'checked' : ''} onchange="eventModalState.preferMorning=this.checked" /> Aamu 08–11</label>
-            <label><input type="checkbox" ${s.preferMidday ? 'checked' : ''} onchange="eventModalState.preferMidday=this.checked" /> Päivä 11–14</label>
-            <label><input type="checkbox" ${s.preferAfternoon ? 'checked' : ''} onchange="eventModalState.preferAfternoon=this.checked" /> Iltapäivä 14–17</label>
+            <label><input type="checkbox" ${s.preferMorning ? 'checked' : ''} onchange="eventModalState.preferMorning=this.checked" /> ${t('prefer_morning')}</label>
+            <label><input type="checkbox" ${s.preferMidday ? 'checked' : ''} onchange="eventModalState.preferMidday=this.checked" /> ${t('prefer_midday')}</label>
+            <label><input type="checkbox" ${s.preferAfternoon ? 'checked' : ''} onchange="eventModalState.preferAfternoon=this.checked" /> ${t('prefer_afternoon')}</label>
           </div>
 
           <div class="actions">
-            <button class="secondary" onclick="closeModal()">Peruuta</button>
-            <button onclick="searchEventSlots()">Hae ajat</button>
+            <button class="secondary" onclick="closeModal()">${t('cancel')}</button>
+            <button onclick="searchEventSlots()">${t('search_times')}</button>
           </div>
         </div>
       </div>
@@ -1117,7 +1221,7 @@ function openCreateEventModal() {
     Object.entries(s.groupRoles).forEach(([id, role]) => (role === 'required' ? requiredIds.groups : optionalIds.groups).push(id));
 
     if (requiredIds.people.length + requiredIds.groups.length + optionalIds.people.length + optionalIds.groups.length === 0) {
-      alert('Valitse vähintään yksi henkilö tai ryhmä.');
+      alert(t('alert_select_attendee'));
       return;
     }
 
@@ -1149,7 +1253,7 @@ function openCreateEventModal() {
     });
 
     if (results.length === 0) {
-      alert('Sopivaa aikaa ei löytynyt annetuilla ehdoilla — kokeile laajentaa hakuväliä tai vähentää pakollisia osallistujia.');
+      alert(t('alert_no_slots_found'));
       return;
     }
 
@@ -1161,10 +1265,11 @@ function openCreateEventModal() {
 function formatSlotLabel(slot) {
     const start = new Date(slot.startMs);
     const end = new Date(slot.endMs);
-    const wd = WEEKDAY_LABELS[(start.getDay() + 6) % 7];
+    const wd = weekdayShortArr()[(start.getDay() + 6) % 7];
     const dateStr = start.getDate() + '.' + (start.getMonth() + 1) + '.';
-    const startTime = start.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
-    const endTime = end.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
+    const locale = getCurrentLanguage() === 'en' ? 'en-GB' : 'fi-FI';
+    const startTime = start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+    const endTime = end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
     return `${wd} ${dateStr} ${startTime}–${endTime}`;
   }
 
@@ -1217,8 +1322,8 @@ function formatSlotLabel(slot) {
     document.getElementById('modalHost').innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="modal event-modal">
-          <h3>Ehdotetut ajat</h3>
-          <button class="secondary" onclick="renderEventSelectionStep()">+ Lisää ihmisiä / ryhmiä</button>
+          <h3>${t('suggested_times')}</h3>
+          <button class="secondary" onclick="renderEventSelectionStep()">${t('add_more_people_groups')}</button>
 
           <div class="slot-list">${slotRows}</div>
 
@@ -1233,7 +1338,7 @@ function formatSlotLabel(slot) {
           </div>
 
           <div class="actions">
-            <button class="secondary" onclick="closeModal()">Sulje</button>
+            <button class="secondary" onclick="closeModal()">${t('close')}</button>
           </div>
         </div>
       </div>
@@ -1289,7 +1394,7 @@ function isoToDatetimeLocal(iso) {
     const data = await res.json();
 
     if (data.error) {
-      alert('Virhe: ' + data.error);
+      alert(t('error_prefix') + ': ' + data.error);
       return;
     }
 
@@ -1315,14 +1420,14 @@ function isoToDatetimeLocal(iso) {
   function viewPrefsSectionHtml() {
     return `
       <div class="view-prefs-section">
-        <label style="margin-top:0;">Näkymän asetukset</label>
+        <label style="margin-top:0;">${t('view_settings_label')}</label>
         <div class="radio-row">
-          <label><input type="radio" name="dayRangeMode" value="full" ${dayRangeMode === 'full' ? 'checked' : ''} onchange="setDayRangeMode('full')" /> Koko vuorokausi (0–24)</label>
-          <label><input type="radio" name="dayRangeMode" value="business" ${dayRangeMode === 'business' ? 'checked' : ''} onchange="setDayRangeMode('business')" /> Työaika (9–17)</label>
+          <label><input type="radio" name="dayRangeMode" value="full" ${dayRangeMode === 'full' ? 'checked' : ''} onchange="setDayRangeMode('full')" /> ${t('full_day_option')}</label>
+          <label><input type="radio" name="dayRangeMode" value="business" ${dayRangeMode === 'business' ? 'checked' : ''} onchange="setDayRangeMode('business')" /> ${t('business_hours_option')}</label>
         </div>
         <div class="check-row">
           <input type="checkbox" id="hideWeekendsCheck" ${hideWeekends ? 'checked' : ''} onchange="setHideWeekends(this.checked)" />
-          <label style="margin:0;" for="hideWeekendsCheck">Piilota viikonloput</label>
+          <label style="margin:0;" for="hideWeekendsCheck">${t('hide_weekends_label')}</label>
         </div>
       </div>
     `;
@@ -1330,34 +1435,35 @@ function isoToDatetimeLocal(iso) {
 
   function calendarSectionHtml() {
     const s = settingsState;
+    const locale = getCurrentLanguage() === 'en' ? 'en-GB' : 'fi-FI';
     if (s.calendarStatus === 'authorized') {
-      const updated = s.tokenUpdatedAt ? new Date(s.tokenUpdatedAt).toLocaleString('fi-FI') : '–';
+      const updated = s.tokenUpdatedAt ? new Date(s.tokenUpdatedAt).toLocaleString(locale) : '–';
       return `
         <div class="calendar-section">
-          <p class="ok-text">✓ Kalenteri on valtuutettu.</p>
-          <p class="meta">Päivitetty viimeksi: ${updated}</p>
-          <button class="danger" type="button" onclick="revokeCalendarAuth()">Poista valtuutus</button>
+          <p class="ok-text">${t('calendar_authorized_ok')}</p>
+          <p class="meta">${t('last_updated_label')}: ${updated}</p>
+          <button class="danger" type="button" onclick="revokeCalendarAuth()">${t('revoke_auth_btn')}</button>
         </div>
       `;
     }
     if (s.calendarStatus === 'expired') {
       return `
         <div class="calendar-section">
-          <p class="warn-text">Microsoft-valtuutus vanhentunut. Hae uudestaan.</p>
-          <button type="button" onclick="startCalendarAuthForParticipant('${s.participantId}')">Hae uudestaan</button>
+          <p class="warn-text">${t('calendar_expired_warn')}</p>
+          <button type="button" onclick="startCalendarAuthForParticipant('${s.participantId}')">${t('retry_auth_btn')}</button>
         </div>
       `;
     }
     return `
       <div class="calendar-section">
-        <p class="empty-note">Kalenteria ei ole vielä valtuutettu.</p>
-        <button type="button" onclick="startCalendarAuthForParticipant('${s.participantId}')">Anna lupa nähdä kalenterisi saatavilla/kiireinen ajat</button>
+        <p class="empty-note">${t('calendar_not_authorized')}</p>
+        <button type="button" onclick="startCalendarAuthForParticipant('${s.participantId}')">${t('grant_calendar_access')}</button>
       </div>
     `;
   }
 
   async function revokeCalendarAuth() {
-    if (!confirm('Poistetaanko kalenterivaltuutus? Muut eivät voi enää nähdä aikataulujasi tässä projektissa, ennen kuin annat luvan uudelleen.')) return;
+    if (!confirm(t('confirm_revoke_auth'))) return;
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/revoke-calendar-authorization`, {
       method: 'POST',
@@ -1365,14 +1471,14 @@ function isoToDatetimeLocal(iso) {
       body: JSON.stringify({ projectId: PROJECT_ID }),
     });
     const data = await res.json();
-    if (data.error) { alert('Virhe: ' + data.error); return; }
+    if (data.error) { alert(t('error_prefix') + ': ' + data.error); return; }
 
     closeModal();
     loadStatus();
   }
 
   async function leaveProjectConfirm() {
-    if (!confirm('Haluatko varmasti poistua tästä projektista? Tätä ei voi perua.')) return;
+    if (!confirm(t('confirm_leave_project'))) return;
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/leave-project`, {
       method: 'POST',
@@ -1380,7 +1486,7 @@ function isoToDatetimeLocal(iso) {
       body: JSON.stringify({ projectId: PROJECT_ID }),
     });
     const data = await res.json();
-    if (data.error) { alert('Virhe: ' + data.error); return; }
+    if (data.error) { alert(t('error_prefix') + ': ' + data.error); return; }
 
     window.location.href = '/projektit.html';
   }
@@ -1425,6 +1531,7 @@ function isoToDatetimeLocal(iso) {
   }
 
   function renderSettingsModal() {
+    const wdShort = weekdayShortArr();
     let daysHtml = '';
     for (let d = 0; d < 7; d++) {
       const ranges = settingsState.windowsByDay[d];
@@ -1442,9 +1549,9 @@ function isoToDatetimeLocal(iso) {
         <div class="day-block">
           <label class="day-toggle">
             <input type="checkbox" ${enabled ? 'checked' : ''} onchange="toggleSettingsDay(${d}, this.checked)" />
-            ${WEEKDAY_LABELS[d]}
+            ${wdShort[d]}
           </label>
-          ${enabled ? `<div class="ranges">${rangesHtml}<button type="button" class="secondary add-range-btn" onclick="addSettingsRange(${d})">+ Lisää kellonaika</button></div>` : ''}
+          ${enabled ? `<div class="ranges">${rangesHtml}<button type="button" class="secondary add-range-btn" onclick="addSettingsRange(${d})">${t('add_time_range')}</button></div>` : ''}
         </div>
       `;
     }
@@ -1456,37 +1563,37 @@ function isoToDatetimeLocal(iso) {
         <input type="datetime-local" value="${b.endAt}" onchange="updateBlackoutField(${idx}, 'endAt', this.value)" />
         <button type="button" class="remove-x" onclick="removeBlackout(${idx})">✕</button>
       </div>
-    `).join('') || '<p class="empty-note">Ei rajoitusjaksoja.</p>';
+    `).join('') || `<p class="empty-note">${t('no_blackouts')}</p>`;
 
     document.getElementById('modalHost').innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="modal settings-modal">
-          <h3>Asetukset</h3>
+          <h3>${t('modal_settings')}</h3>
 
           ${viewPrefsSectionHtml()}
 
           ${calendarSectionHtml()}
 
-          <label style="margin-top:0;">Näytä kalenterini muille näinä ajankohtina</label>
-          <p class="empty-note" style="margin-top:-2px;">Jos et aktivoi yhtään päivää, kalenterisi näkyy muille aina.</p>
+          <label style="margin-top:0;">${t('show_calendar_to_others')}</label>
+          <p class="empty-note" style="margin-top:-2px;">${t('show_calendar_note')}</p>
           ${daysHtml}
 
-          <label style="margin-top:16px;">Rajoita kalenterin näkyvyys projektille tiettynä ajankohtana</label>
+          <label style="margin-top:16px;">${t('restrict_visibility_label')}</label>
           <div id="blackoutsList">${blackoutsHtml}</div>
-          <button type="button" class="secondary" onclick="addBlackout()">+ Lisää uusi</button>
+          <button type="button" class="secondary" onclick="addBlackout()">${t('add_new_btn')}</button>
 
           <label class="fully-hidden-row">
             <input type="checkbox" ${settingsState.fullyHidden ? 'checked' : ''} onchange="settingsState.fullyHidden = this.checked" />
-            Rajoita kalenterini näkyminen projektille
+            ${t('hide_calendar_fully')}
           </label>
 
           <div class="actions">
-            <button class="secondary" onclick="closeModal()">Peruuta</button>
-            <button onclick="saveSettingsSubmit()">Tallenna</button>
+            <button class="secondary" onclick="closeModal()">${t('cancel')}</button>
+            <button onclick="saveSettingsSubmit()">${t('save_btn')}</button>
           </div>
 
           <div class="danger-zone">
-            <button class="danger" type="button" onclick="leaveProjectConfirm()">Poistu projektista</button>
+            <button class="danger" type="button" onclick="leaveProjectConfirm()">${t('leave_project_btn')}</button>
           </div>
         </div>
       </div>
@@ -1518,7 +1625,7 @@ function isoToDatetimeLocal(iso) {
     const data = await res.json();
 
     if (data.error) {
-      alert('Virhe: ' + data.error);
+      alert(t('error_prefix') + ': ' + data.error);
       return;
     }
 
@@ -1531,6 +1638,7 @@ function isoToDatetimeLocal(iso) {
   (async () => {
     const ok = await ensureLoggedIn();
     if (ok) {
+      await loadMyProfileAndTranslations();
       await loadStatus();
       setHomeScroll();
     }
