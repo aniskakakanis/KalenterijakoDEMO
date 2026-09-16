@@ -34,16 +34,17 @@
 </head>
 <body>
 
-<a class="back" href="/asiakkaat.html">&larr; Asiakkaat</a>
-<h1>Kaikki henkilöt</h1>
-<p class="sub">Jokainen sähköposti, joka on jollain tavalla liittynyt sovellukseen — asiakkuudet ja projektit statuksineen.</p>
+<a class="back" href="/asiakkaat.html">&larr; <span data-i18n="heading_clients"></span></a>
+<h1 data-i18n="heading_people"></h1>
+<p class="sub" data-i18n="sub_people"></p>
 
 <div class="search-bar">
-  <input type="text" id="searchInput" placeholder="Hae sähköpostilla tai nimellä…" oninput="renderList()" />
+  <input type="text" id="searchInput" data-i18n-placeholder="search_placeholder" oninput="renderList()" />
 </div>
 
-<div id="list">Ladataan…</div>
+<div id="list" data-i18n="loading"></div>
 
+<script src="/translations.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
@@ -79,7 +80,7 @@
     const data = await res.json();
 
     if (data.error) {
-      document.getElementById('list').innerHTML = `<p class="empty-note">Virhe: ${data.error}</p>`;
+      document.getElementById('list').innerHTML = `<p class="empty-note">${t('error_prefix')}: ${data.error}</p>`;
       return;
     }
 
@@ -88,9 +89,9 @@
   }
 
   function statusLabel(status) {
-    if (status === 'authorized') return 'Valtuutettu';
-    if (status === 'expired') return 'Vanhentunut';
-    return 'Odottaa';
+    if (status === 'authorized') return t('cal_status_authorized');
+    if (status === 'expired') return t('cal_status_expired');
+    return t('cal_status_pending');
   }
 
   function renderList() {
@@ -103,7 +104,7 @@
     const list = document.getElementById('list');
 
     if (filtered.length === 0) {
-      list.innerHTML = '<p class="empty-note">Ei tuloksia.</p>';
+      list.innerHTML = `<p class="empty-note">${t('empty_no_results')}</p>`;
       return;
     }
 
@@ -111,13 +112,13 @@
       const name = (p.firstName || p.lastName) ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : '';
 
       const orgTags = p.organizations.map((o) =>
-        `<span class="tag">${o.organizationName} — ${o.role === 'superuser' ? 'pääkäyttäjä' : 'jäsen'}</span>`
-      ).join('') || '<span class="empty-note">Ei asiakkuusjäsenyyksiä.</span>';
+        `<span class="tag">${o.organizationName} — ${o.role === 'superuser' ? t('role_suffix_superuser') : t('role_suffix_member')}</span>`
+      ).join('') || `<span class="empty-note">${t('empty_no_org_memberships')}</span>`;
 
       const projectTags = p.projects.map((pr) => {
         const orgPart = pr.organizationName ? `${pr.organizationName} / ` : '';
         return `<span class="tag status-${pr.status}">${orgPart}${pr.projectName} — ${statusLabel(pr.status)}</span>`;
-      }).join('') || '<span class="empty-note">Ei projektiosallistumisia.</span>';
+      }).join('') || `<span class="empty-note">${t('empty_no_project_memberships')}</span>`;
 
       return `
         <div class="person-card">
@@ -126,16 +127,16 @@
               <div class="email">${p.email}</div>
               ${name ? `<div class="name">${name}</div>` : ''}
             </div>
-            <button class="danger" onclick="deletePerson('${p.email.replace(/'/g, "\\'")}')">Poista käyttäjä</button>
+            <button class="danger" onclick="deletePerson('${p.email.replace(/'/g, "\\'")}')">${t('delete_user_btn')}</button>
           </div>
 
           <div class="tag-group">
-            <div class="tag-label">Asiakkuudet</div>
+            <div class="tag-label">${t('tag_organizations')}</div>
             <div class="tag-row">${orgTags}</div>
           </div>
 
           <div class="tag-group">
-            <div class="tag-label">Projektit</div>
+            <div class="tag-label">${t('tag_projects')}</div>
             <div class="tag-row">${projectTags}</div>
           </div>
         </div>
@@ -144,15 +145,10 @@
   }
 
   async function deletePerson(email) {
-    const firstConfirm = confirm(
-      `Poistetaanko käyttäjä ${email} KOKONAAN sovelluksesta?\n\n` +
-      `Tämä poistaa hänet kaikista projekteista ja asiakkuuksista, ja poistaa hänen kirjautumistilinsä kokonaan. Tätä ei voi perua.`
-    );
+    const firstConfirm = confirm(t('confirm_delete_user_1', { email }));
     if (!firstConfirm) return;
 
-    const secondConfirm = confirm(
-      `Oletko aivan varma? Kirjoita tämä vahvistus vielä kerran mielessäsi: ${email} poistetaan pysyvästi.`
-    );
+    const secondConfirm = confirm(t('confirm_delete_user_2', { email }));
     if (!secondConfirm) return;
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/delete-person-everywhere`, {
@@ -163,7 +159,7 @@
     const data = await res.json();
 
     if (data.error) {
-      alert('Virhe: ' + data.error);
+      alert(t('error_prefix') + ': ' + data.error);
       return;
     }
 
@@ -172,7 +168,10 @@
 
   (async () => {
     const ok = await ensureLoggedIn();
-    if (ok) loadPeople();
+    if (ok) {
+      applyStaticTranslations();
+      loadPeople();
+    }
   })();
 </script>
 
