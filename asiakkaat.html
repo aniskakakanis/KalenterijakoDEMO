@@ -44,12 +44,13 @@
 </head>
 <body>
 
-<a class="back" href="/projektit.html">&larr; Omat projektit</a>
-<h1>Asiakkaat</h1>
-<p class="sub">Asiakasorganisaatioiden hallinta (vain superadmin)</p>
+<a class="back" href="/projektit.html">&larr; <span data-i18n="heading_my_projects"></span></a>
+<h1 data-i18n="heading_clients"></h1>
+<p class="sub" data-i18n="sub_clients"></p>
 
-<div id="app">Ladataan…</div>
+<div id="app" data-i18n="loading"></div>
 
+<script src="/translations.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
@@ -88,7 +89,7 @@
     const data = await res.json();
 
     if (data.error) {
-      document.getElementById('app').innerHTML = `<p class="empty-note">Virhe: ${data.error}</p>`;
+      document.getElementById('app').innerHTML = `<p class="empty-note">${t('error_prefix')}: ${data.error}</p>`;
       return;
     }
 
@@ -102,17 +103,17 @@
 
     let listHtml = '';
     if (organizations.length === 0) {
-      listHtml = '<p class="empty-note">Ei vielä yhtään asiakkuutta.</p>';
+      listHtml = `<p class="empty-note">${t('empty_no_clients')}</p>`;
     } else {
       listHtml = organizations.map((o) => {
         const badge = o.access_mode === 'domain'
-          ? `<span class="badge domain">Koko domain: ${o.email_domain}</span>`
-          : `<span class="badge restricted">Vain listatut</span>`;
+          ? `<span class="badge domain">${t('badge_domain')}: ${o.email_domain}</span>`
+          : `<span class="badge restricted">${t('badge_restricted')}</span>`;
         const superuserCount = o.members.filter((m) => m.role === 'superuser').length;
         return `
           <div class="card" onclick="openOrganization('${o.id}')">
             <div class="name">${o.name}${badge}</div>
-            <div class="meta">${superuserCount} pääkäyttäjää · ${o.members.length} jäsentä listattu</div>
+            <div class="meta">${superuserCount} ${t('superusers_count_label')} · ${o.members.length} ${t('members_listed_label')}</div>
           </div>
         `;
       }).join('');
@@ -121,7 +122,7 @@
     app.innerHTML = `
       <div class="toolbar">
         <span></span>
-        <button class="secondary" onclick="showCreateForm()">+ Uusi asiakkuus</button>
+        <button class="secondary" onclick="showCreateForm()">${t('new_client_link')}</button>
       </div>
       <div id="orgList">${listHtml}</div>
     `;
@@ -154,38 +155,38 @@
 
     app.innerHTML = `
       <div class="form-section">
-        <h3 style="margin-top:0;">${isEdit ? 'Muokkaa asiakkuutta' : 'Uusi asiakkuus'}</h3>
+        <h3 style="margin-top:0;">${isEdit ? t('edit_client_heading') : t('new_client_heading')}</h3>
 
-        <label>Asiakkuuden nimi</label>
+        <label>${t('client_name_label')}</label>
         <input type="text" id="orgName" value="${org.name}" />
 
-        <label>Käyttöoikeuden laajuus</label>
+        <label>${t('access_scope_label')}</label>
         <div class="radio-row">
-          <label><input type="radio" name="accessMode" value="restricted" ${org.access_mode !== 'domain' ? 'checked' : ''} onchange="toggleDomainField()" /> Vain listatut käyttäjät</label>
-          <label><input type="radio" name="accessMode" value="domain" ${org.access_mode === 'domain' ? 'checked' : ''} onchange="toggleDomainField()" /> Koko domain</label>
+          <label><input type="radio" name="accessMode" value="restricted" ${org.access_mode !== 'domain' ? 'checked' : ''} onchange="toggleDomainField()" /> ${t('restricted_option')}</label>
+          <label><input type="radio" name="accessMode" value="domain" ${org.access_mode === 'domain' ? 'checked' : ''} onchange="toggleDomainField()" /> ${t('domain_option')}</label>
         </div>
 
         <div id="domainFieldWrap" style="display:${org.access_mode === 'domain' ? 'block' : 'none'};">
-          <label>Sähköpostin verkkotunnus</label>
+          <label>${t('email_domain_label')}</label>
           <input type="text" id="emailDomain" value="${org.email_domain || ''}" />
         </div>
 
-        <label>Pääkäyttäjät</label>
+        <label>${t('superusers_label')}</label>
         <div id="superuserRows">${superuserRows}</div>
-        <button type="button" class="add-btn" onclick="addSuperuser()">+ Lisää pääkäyttäjä</button>
+        <button type="button" class="add-btn" onclick="addSuperuser()">${t('add_superuser_btn')}</button>
 
-        <label>Muut listatut jäsenet (valinnainen)</label>
+        <label>${t('other_members_label')}</label>
         <div id="memberRows">${memberRows}</div>
-        <button type="button" class="add-btn" onclick="addMember()">+ Lisää jäsen</button>
+        <button type="button" class="add-btn" onclick="addMember()">${t('add_member_btn')}</button>
 
         <div style="margin-top:20px;">
-          <button class="secondary" onclick="renderList()">Peruuta</button>
-          <button onclick="${isEdit ? 'submitOrganizationEdit()' : 'submitOrganization()'}">${isEdit ? 'Tallenna muutokset' : 'Luo asiakkuus'}</button>
+          <button class="secondary" onclick="renderList()">${t('cancel')}</button>
+          <button onclick="${isEdit ? 'submitOrganizationEdit()' : 'submitOrganization()'}">${isEdit ? t('save_changes_btn') : t('create_client_btn')}</button>
         </div>
 
         ${isEdit ? `
           <div class="danger-zone">
-            <button class="danger" type="button" onclick="deleteOrganization()">Poista asiakkuus</button>
+            <button class="danger" type="button" onclick="deleteOrganization()">${t('delete_client_btn')}</button>
           </div>
         ` : ''}
       </div>
@@ -214,21 +215,20 @@
   }
 
   function rerenderCurrentForm() {
-    // Säilytetään jo kirjoitetut nimi/domain-kentät kesken listan muokkauksen.
     const values = currentFormValues();
     renderOrgForm(values);
   }
 
-async function submitOrganization() {
+  async function submitOrganization() {
     const name = document.getElementById('orgName').value.trim();
     const accessMode = document.querySelector('input[name="accessMode"]:checked').value;
     const emailDomain = accessMode === 'domain' ? document.getElementById('emailDomain').value.trim() : null;
     const superusers = superuserEmails.map((e) => e.trim()).filter((e) => e !== '');
     const members = memberEmails.map((e) => e.trim()).filter((e) => e !== '');
 
-    if (!name) { alert('Anna asiakkuuden nimi.'); return; }
-    if (superusers.length === 0) { alert('Vähintään yksi pääkäyttäjä vaaditaan.'); return; }
-    if (accessMode === 'domain' && !emailDomain) { alert('Anna sähköpostin verkkotunnus.'); return; }
+    if (!name) { alert(t('alert_client_name_required')); return; }
+    if (superusers.length === 0) { alert(t('alert_superuser_required')); return; }
+    if (accessMode === 'domain' && !emailDomain) { alert(t('alert_domain_required')); return; }
 
     let itContactEmail = '';
     const allDomains = new Set();
@@ -249,10 +249,7 @@ async function submitOrganization() {
     const checkData = await checkRes.json();
 
     if (checkData.newDomains && checkData.newDomains.length > 0) {
-      itContactEmail = prompt(
-        `Tämä asiakkuus liittää sovellukseen uuden domainin (${checkData.newDomains.join(', ')}). ` +
-        `Anna halutessasi IT-yhteyshenkilön sähköposti tietosuojailmoitusta varten (voit jättää tyhjäksi):`
-      ) || '';
+      itContactEmail = prompt(t('new_domain_prompt', { domains: checkData.newDomains.join(', ') })) || '';
     }
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/create-organization`, {
@@ -262,12 +259,9 @@ async function submitOrganization() {
     });
     const data = await res.json();
 
-    if (data.error) { alert('Virhe: ' + data.error); return; }
+    if (data.error) { alert(t('error_prefix') + ': ' + data.error); return; }
 
-    alert(
-      'Asiakkuus luotu. Kutsut lähetettiin automaattisesti sähköpostitse pääkäyttäjille' +
-      (accessMode === 'restricted' ? ' ja nimetyille jäsenille.' : '.')
-    );
+    alert(t('client_created_alert') + (accessMode === 'restricted' ? t('and_named_members') : '.'));
 
     await loadOrganizations();
   }
@@ -279,9 +273,9 @@ async function submitOrganization() {
     const superusers = superuserEmails.map((e) => e.trim()).filter((e) => e !== '');
     const members = memberEmails.map((e) => e.trim()).filter((e) => e !== '');
 
-    if (!name) { alert('Anna asiakkuuden nimi.'); return; }
-    if (superusers.length === 0) { alert('Vähintään yksi pääkäyttäjä vaaditaan.'); return; }
-    if (accessMode === 'domain' && !emailDomain) { alert('Anna sähköpostin verkkotunnus.'); return; }
+    if (!name) { alert(t('alert_client_name_required')); return; }
+    if (superusers.length === 0) { alert(t('alert_superuser_required')); return; }
+    if (accessMode === 'domain' && !emailDomain) { alert(t('alert_domain_required')); return; }
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/update-organization`, {
       method: 'POST',
@@ -290,7 +284,7 @@ async function submitOrganization() {
     });
     const data = await res.json();
 
-    if (data.error) { alert('Virhe: ' + data.error); return; }
+    if (data.error) { alert(t('error_prefix') + ': ' + data.error); return; }
 
     await loadOrganizations();
   }
@@ -299,7 +293,7 @@ async function submitOrganization() {
     const org = organizations.find((o) => o.id === editingOrgId);
     if (!org) return;
 
-    const confirm1 = confirm(`Poistetaanko asiakkuus "${org.name}" pysyvästi? Tätä ei voi perua.`);
+    const confirm1 = confirm(t('confirm_delete_client', { name: org.name }));
     if (!confirm1) return;
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/delete-organization`, {
@@ -309,7 +303,7 @@ async function submitOrganization() {
     });
     const data = await res.json();
 
-    if (data.error) { alert('Virhe: ' + data.error); return; }
+    if (data.error) { alert(t('error_prefix') + ': ' + data.error); return; }
 
     await loadOrganizations();
   }
@@ -334,12 +328,12 @@ async function submitOrganization() {
 
     const app = document.getElementById('app');
     app.innerHTML = `
-      <a class="back" href="#" onclick="renderList(); return false;">&larr; Kaikki asiakkaat</a>
+      <a class="back" href="#" onclick="renderList(); return false;">&larr; ${t('all_clients_back')}</a>
       <h1 style="margin-top:10px;">${org.name}</h1>
-      <p class="sub">Pääkäyttäjät: ${org.members.filter((m) => m.role === 'superuser').map((m) => m.email).join(', ') || '–'}</p>
-      <button class="secondary" onclick="startEditOrganization()">Muokkaa asiakkuutta</button>
-      <h3 style="margin-top:20px;">Projektit</h3>
-      <div id="orgProjects">Ladataan…</div>
+      <p class="sub">${t('superusers_prefix')}: ${org.members.filter((m) => m.role === 'superuser').map((m) => m.email).join(', ') || '–'}</p>
+      <button class="secondary" onclick="startEditOrganization()">${t('edit_client_btn')}</button>
+      <h3 style="margin-top:20px;">${t('projects_label')}</h3>
+      <div id="orgProjects">${t('loading')}</div>
     `;
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/list-projects`, {
@@ -351,25 +345,29 @@ async function submitOrganization() {
 
     const projList = document.getElementById('orgProjects');
     if (data.error) {
-      projList.innerHTML = `<p class="empty-note">Virhe: ${data.error}</p>`;
+      projList.innerHTML = `<p class="empty-note">${t('error_prefix')}: ${data.error}</p>`;
       return;
     }
     if (!data.projects || data.projects.length === 0) {
-      projList.innerHTML = '<p class="empty-note">Ei vielä yhtään projektia tälle asiakkuudelle.</p>';
+      projList.innerHTML = `<p class="empty-note">${t('empty_no_client_projects')}</p>`;
       return;
     }
 
+    const locale = getCurrentLanguage() === 'en' ? 'en-GB' : 'fi-FI';
     projList.innerHTML = data.projects.map((p) => `
       <a class="project-card" href="/projekti.html?id=${p.id}">
         <div class="name">${p.name}</div>
-        <div class="meta">Vastuuhenkilö: ${p.owner_email} · Luotu ${new Date(p.created_at).toLocaleDateString('fi-FI')}</div>
+        <div class="meta">${t('responsible_person')}: ${p.owner_email} · ${t('created_label')} ${new Date(p.created_at).toLocaleDateString(locale)}</div>
       </a>
     `).join('');
   }
 
   (async () => {
     const ok = await ensureLoggedIn();
-    if (ok) loadOrganizations();
+    if (ok) {
+      applyStaticTranslations();
+      loadOrganizations();
+    }
   })();
 </script>
 
