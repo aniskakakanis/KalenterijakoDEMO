@@ -34,8 +34,9 @@
 </head>
 <body>
 
-<div id="app">Ladataan…</div>
+<div id="app">…</div>
 
+<script src="/translations.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
@@ -45,7 +46,9 @@
   const CLIENT_ID = "54f922c6-aa24-44b4-9305-f28964c09f96";
   const CALENDAR_REDIRECT_URI = "https://nrrhvbxvkizvkcwwglck.supabase.co/functions/v1/auth-callback";
 
-  const WEEKDAY_LABELS = ['Ma', 'Ti', 'Ke', 'To', 'Pe', 'La', 'Su'];
+  function weekdayShortArr() {
+    return ['weekday_short_mon','weekday_short_tue','weekday_short_wed','weekday_short_thu','weekday_short_fri','weekday_short_sat','weekday_short_sun'].map((k) => t(k));
+  }
 
   let PID = null;
   let inviteInfo = null;
@@ -70,7 +73,7 @@
     const status = params.get('status');
 
     if (!PID) {
-      app().innerHTML = '<div class="card">Virheellinen tai vanhentunut kutsulinkki.</div>';
+      app().innerHTML = `<div class="card">${t('invite_not_found')}</div>`;
       return;
     }
 
@@ -82,7 +85,7 @@
     const data = await res.json();
 
     if (data.error) {
-      app().innerHTML = `<div class="card">Virhe: ${data.error}</div>`;
+      app().innerHTML = `<div class="card">${t('error_prefix')}: ${data.error}</div>`;
       return;
     }
     inviteInfo = data;
@@ -105,8 +108,6 @@
     if (inviteInfo.needsRegistration) {
       renderRegistrationStep();
     } else if (status === 'ok') {
-      // Ei ensimmäinen kerta, ja kalenterivaltuutus juuri onnistui —
-      // ohitetaan liittymisnäkymä ja mennään suoraan projektisivulle.
       window.location.href = `/projekti.html?id=${inviteInfo.projectId}`;
     } else {
       renderProjectStep(status);
@@ -116,9 +117,9 @@
   function renderLoginStep() {
     app().innerHTML = `
       <div class="card">
-        <h1>Kutsu projektiin</h1>
-        <p class="sub">Sinut on kutsuttu projektiin <strong>${inviteInfo.projectName}</strong> osoitteella ${inviteInfo.email}.</p>
-        <button onclick="loginWithMicrosoft()">Kirjaudu Microsoft-tilillä</button>
+        <h1>${t('invite_heading')}</h1>
+        <p class="sub">${t('invited_to_project', { projectName: '<strong>' + inviteInfo.projectName + '</strong>', email: inviteInfo.email })}</p>
+        <button onclick="loginWithMicrosoft()">${t('login_microsoft_btn')}</button>
       </div>
     `;
   }
@@ -136,9 +137,9 @@
   function renderEmailMismatch(sessionEmail) {
     app().innerHTML = `
       <div class="card">
-        <h1>Väärä tili</h1>
-        <p class="sub">Olet kirjautunut osoitteella <strong>${sessionEmail}</strong>, mutta kutsu on osoitettu osoitteelle <strong>${inviteInfo.email}</strong>.</p>
-        <button onclick="logoutAndRetry()">Kirjaudu ulos ja yritä uudelleen</button>
+        <h1>${t('wrong_account_heading')}</h1>
+        <p class="sub">${t('wrong_account_body', { sessionEmail: '<strong>' + sessionEmail + '</strong>', inviteEmail: '<strong>' + inviteInfo.email + '</strong>' })}</p>
+        <button onclick="logoutAndRetry()">${t('logout_and_retry_btn')}</button>
       </div>
     `;
   }
@@ -152,19 +153,19 @@
     const p = inviteInfo.prefill;
     app().innerHTML = `
       <div class="card">
-        <h1>Täydennä tietosi</h1>
-        <p class="sub">Projekti: <strong>${inviteInfo.projectName}</strong></p>
+        <h1>${t('complete_profile_heading')}</h1>
+        <p class="sub">${t('project_label')}: <strong>${inviteInfo.projectName}</strong></p>
 
-        <label>Etunimi</label>
+        <label>${t('first_name_label')}</label>
         <input type="text" id="regFirstName" value="${p.firstName}" />
-        <label>Sukunimi</label>
+        <label>${t('last_name_label')}</label>
         <input type="text" id="regLastName" value="${p.lastName}" />
-        <label>Titteli</label>
+        <label>${t('title_label')}</label>
         <input type="text" id="regTitle" value="${p.title}" />
-        <label>Organisaatio</label>
+        <label>${t('organization_label')}</label>
         <input type="text" id="regOrganization" value="${p.organization}" />
 
-        <button onclick="saveProfile()">Tallenna ja jatka</button>
+        <button onclick="saveProfile()">${t('save_and_continue_btn')}</button>
       </div>
     `;
   }
@@ -186,7 +187,7 @@
     const data = await res.json();
 
     if (data.error) {
-      alert('Virhe: ' + data.error);
+      alert(t('error_prefix') + ': ' + data.error);
       return;
     }
 
@@ -206,32 +207,30 @@
 
   function statusBannerHtml(status) {
     if (!status) return '';
-    if (status === 'ok') return '<div class="banner ok">Kalenterin valtuutus onnistui.</div>';
-    if (status === 'denied') return '<div class="banner error">Valtuutus peruutettiin.</div>';
-    if (status === 'email_mismatch') return '<div class="banner error">Kirjauduit kalenterivaltuutuksessa eri Microsoft-tilillä kuin kutsu on osoitettu. Käytä samaa tiliä molemmissa vaiheissa.</div>';
-    return '<div class="banner error">Valtuutus epäonnistui, yritä uudelleen.</div>';
+    if (status === 'ok') return `<div class="banner ok">${t('banner_auth_ok')}</div>`;
+    if (status === 'denied') return `<div class="banner error">${t('banner_auth_denied')}</div>`;
+    if (status === 'email_mismatch') return `<div class="banner error">${t('banner_email_mismatch')}</div>`;
+    return `<div class="banner error">${t('banner_auth_error')}</div>`;
   }
 
   async function renderProjectStep(status) {
-    // Siivotaan status-parametri osoitteesta, jotta se ei jää sivulle
-    // päivityksen varalle, mutta pid säilyy.
     window.history.replaceState({}, '', `/kutsu.html?pid=${PID}`);
 
     const calendarSectionHtml = inviteInfo.calendarAuthorized
-      ? '<p class="checkmark">✓ Kalenterisi on valtuutettu.</p>'
-      : '<button class="secondary" onclick="startCalendarAuth()">Anna sovellukselle lupa nähdä kalenterisi saatavilla/kiireinen ajat</button>';
+      ? `<p class="checkmark">${t('calendar_authorized_check')}</p>`
+      : `<button class="secondary" onclick="startCalendarAuth()">${t('grant_calendar_access')}</button>`;
 
     app().innerHTML = `
       <div class="card">
-        <h1>Liity projektiin</h1>
+        <h1>${t('join_project_heading')}</h1>
         ${statusBannerHtml(status)}
-        <p class="sub">Sinut on kutsuttu projektiin <strong>${inviteInfo.projectName}</strong>. Määritä projektikohtaiset asetukset ja liity sen jäseneksi.</p>
+        <p class="sub">${t('join_project_body', { projectName: '<strong>' + inviteInfo.projectName + '</strong>' })}</p>
 
         ${calendarSectionHtml}
 
-        <div id="settingsArea">Ladataan asetuksia…</div>
+        <div id="settingsArea">${t('loading')}</div>
 
-        <button onclick="joinProject()">Liity projektiin</button>
+        <button onclick="joinProject()">${t('join_project_btn')}</button>
       </div>
     `;
 
@@ -247,7 +246,7 @@
     const data = await res.json();
 
     if (data.error) {
-      document.getElementById('settingsArea').innerHTML = `<p class="empty-note">Asetuksia ei voitu ladata: ${data.error}</p>`;
+      document.getElementById('settingsArea').innerHTML = `<p class="empty-note">${t('error_prefix')}: ${data.error}</p>`;
       return;
     }
 
@@ -305,6 +304,7 @@
   }
 
   function renderSettingsInline() {
+    const wdShort = weekdayShortArr();
     let daysHtml = '';
     for (let d = 0; d < 7; d++) {
       const ranges = settingsState.windowsByDay[d];
@@ -322,9 +322,9 @@
         <div class="day-block">
           <label class="day-toggle">
             <input type="checkbox" ${enabled ? 'checked' : ''} onchange="toggleSettingsDay(${d}, this.checked)" />
-            ${WEEKDAY_LABELS[d]}
+            ${wdShort[d]}
           </label>
-          ${enabled ? `<div class="ranges">${rangesHtml}<button type="button" class="secondary add-range-btn" onclick="addSettingsRange(${d})">+ Lisää kellonaika</button></div>` : ''}
+          ${enabled ? `<div class="ranges">${rangesHtml}<button type="button" class="secondary add-range-btn" onclick="addSettingsRange(${d})">${t('add_time_range')}</button></div>` : ''}
         </div>
       `;
     }
@@ -336,20 +336,20 @@
         <input type="datetime-local" value="${b.endAt}" onchange="updateBlackoutField(${idx}, 'endAt', this.value)" />
         <button type="button" class="remove-x" onclick="removeBlackout(${idx})">✕</button>
       </div>
-    `).join('') || '<p class="empty-note">Ei rajoitusjaksoja.</p>';
+    `).join('') || `<p class="empty-note">${t('no_blackouts')}</p>`;
 
     document.getElementById('settingsArea').innerHTML = `
-      <h3>Näytä kalenterini muille näinä ajankohtina</h3>
-      <p class="empty-note">Jos et aktivoi yhtään päivää, kalenterisi näkyy muille aina.</p>
+      <h3>${t('show_calendar_to_others')}</h3>
+      <p class="empty-note">${t('show_calendar_note')}</p>
       ${daysHtml}
 
-      <h3>Rajoita kalenterin näkyvyys projektille tiettynä ajankohtana</h3>
+      <h3>${t('restrict_visibility_label')}</h3>
       <div id="blackoutsList">${blackoutsHtml}</div>
-      <button type="button" class="secondary" onclick="addBlackout()">+ Lisää uusi</button>
+      <button type="button" class="secondary" onclick="addBlackout()">${t('add_new_btn')}</button>
 
       <label class="fully-hidden-row">
         <input type="checkbox" ${settingsState.fullyHidden ? 'checked' : ''} onchange="settingsState.fullyHidden = this.checked" />
-        Rajoita kalenterini näkyminen projektille
+        ${t('hide_calendar_fully')}
       </label>
     `;
   }
