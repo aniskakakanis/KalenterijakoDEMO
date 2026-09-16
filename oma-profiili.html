@@ -36,14 +36,15 @@
 </head>
 <body>
 
-<a class="back" href="/projektit.html">&larr; Omat projektit</a>
-<h1>Oma profiili</h1>
+<a class="back" href="/projektit.html">&larr; <span data-i18n="heading_my_projects"></span></a>
+<h1 data-i18n="heading_my_profile"></h1>
 
-<div class="card" id="profileCard">Ladataan…</div>
+<div class="card" id="profileCard" data-i18n="loading"></div>
 
-<h3>Kalenterivaltuutukset projekteittain</h3>
-<div class="card" id="projectsCard">Ladataan…</div>
+<h3 data-i18n="heading_calendar_by_project"></h3>
+<div class="card" id="projectsCard" data-i18n="loading"></div>
 
+<script src="/translations.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   const SUPABASE_URL = "https://nrrhvbxvkizvkcwwglck.supabase.co";
@@ -54,6 +55,7 @@
   const CALENDAR_REDIRECT_URI = "https://nrrhvbxvkizvkcwwglck.supabase.co/functions/v1/auth-callback";
 
   let currentAccessToken = null;
+  let loadedProfile = null;
 
   function authHeaders() {
     return {
@@ -81,26 +83,32 @@
     const data = await res.json();
 
     if (data.error) {
-      document.getElementById('profileCard').innerHTML = `<p class="empty-note">Virhe: ${data.error}</p>`;
+      document.getElementById('profileCard').innerHTML = `<p class="empty-note">${t('error_prefix')}: ${data.error}</p>`;
       return;
     }
 
+    loadedProfile = data;
+    setCurrentLanguage(data.language || 'fi');
+    applyStaticTranslations();
+
     document.getElementById('profileCard').innerHTML = `
-      <div class="role-badge">${data.roleLabel}</div>
-      <label style="margin-top:0;">Etunimi</label>
+      <div class="role-badge">${t(data.roleKey)}</div>
+      <label style="margin-top:0;">${t('first_name_label')}</label>
       <input type="text" id="firstNameInput" value="${data.firstName}" />
-      <label>Sukunimi</label>
+      <label>${t('last_name_label')}</label>
       <input type="text" id="lastNameInput" value="${data.lastName}" />
-      <label>Titteli</label>
+      <label>${t('title_label')}</label>
       <input type="text" id="titleInput" value="${data.title}" />
-      <label>Organisaatio</label>
+      <label>${t('organization_label')}</label>
       <input type="text" id="organizationInput" value="${data.organization}" />
-      <label>Sähköposti</label>
+      <label>${t('email_label')}</label>
       <input type="text" value="${data.email}" disabled />
       <div style="margin-top:16px;">
-        <button onclick="saveProfile()">Tallenna</button>
+        <button onclick="saveProfile()">${t('save_btn')}</button>
       </div>
     `;
+
+    loadProjects();
   }
 
   async function saveProfile() {
@@ -109,6 +117,7 @@
       lastName: document.getElementById('lastNameInput').value,
       title: document.getElementById('titleInput').value,
       organization: document.getElementById('organizationInput').value,
+      language: getCurrentLanguage(),
     };
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/update-my-profile`, {
@@ -119,17 +128,17 @@
     const data = await res.json();
 
     if (data.error) {
-      alert('Virhe: ' + data.error);
+      alert(t('error_prefix') + ': ' + data.error);
       return;
     }
 
-    alert('Tiedot tallennettu.');
+    alert(t('alert_profile_saved'));
   }
 
   function statusLabel(status) {
-    if (status === 'authorized') return { text: 'Valtuutettu', cls: 'status-ok' };
-    if (status === 'expired') return { text: 'Vanhentunut', cls: 'status-warn' };
-    return { text: 'Ei valtuutettu', cls: 'status-pending' };
+    if (status === 'authorized') return { text: t('cal_status_authorized'), cls: 'status-ok' };
+    if (status === 'expired') return { text: t('cal_status_expired'), cls: 'status-warn' };
+    return { text: t('cal_status_not_authorized'), cls: 'status-pending' };
   }
 
   async function loadProjects() {
@@ -142,27 +151,27 @@
     const card = document.getElementById('projectsCard');
 
     if (data.error) {
-      card.innerHTML = `<p class="empty-note">Virhe: ${data.error}</p>`;
+      card.innerHTML = `<p class="empty-note">${t('error_prefix')}: ${data.error}</p>`;
       return;
     }
 
     if (!data.projects || data.projects.length === 0) {
-      card.innerHTML = '<p class="empty-note">Et ole vielä minkään projektin osallistuja.</p>';
+      card.innerHTML = `<p class="empty-note">${t('empty_no_projects_involved')}</p>`;
       return;
     }
 
     card.innerHTML = data.projects.map((p) => {
       const st = statusLabel(p.status);
       const orgPart = p.organizationName ? `${p.organizationName} / ` : '';
-      const roleLabel = p.role === 'admin' ? 'Pääkäyttäjä' : 'Vieras';
+      const roleLabel = p.role === 'admin' ? t('role_admin') : t('role_guest');
 
       let actionHtml = '';
       if (p.status === 'authorized') {
-        actionHtml = `<button class="danger" onclick="revokeAuth('${p.projectId}')">Poista valtuutus</button>`;
+        actionHtml = `<button class="danger" onclick="revokeAuth('${p.projectId}')">${t('revoke_auth_btn')}</button>`;
       } else if (p.status === 'expired') {
-        actionHtml = `<button class="small" onclick="startAuth('${p.participantId}')">Hae uudestaan</button>`;
+        actionHtml = `<button class="small" onclick="startAuth('${p.participantId}')">${t('retry_auth_btn')}</button>`;
       } else {
-        actionHtml = `<button class="small" onclick="startAuth('${p.participantId}')">Anna lupa</button>`;
+        actionHtml = `<button class="small" onclick="startAuth('${p.participantId}')">${t('grant_auth_short')}</button>`;
       }
 
       return `
@@ -189,7 +198,7 @@
   }
 
   async function revokeAuth(projectId) {
-    if (!confirm('Poistetaanko kalenterivaltuutus tälle projektille? Muut eivät voi enää nähdä aikataulujasi siinä, ennen kuin annat luvan uudelleen.')) return;
+    if (!confirm(t('confirm_revoke_auth'))) return;
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/revoke-calendar-authorization`, {
       method: 'POST',
@@ -197,7 +206,7 @@
       body: JSON.stringify({ projectId }),
     });
     const data = await res.json();
-    if (data.error) { alert('Virhe: ' + data.error); return; }
+    if (data.error) { alert(t('error_prefix') + ': ' + data.error); return; }
 
     loadProjects();
   }
@@ -206,7 +215,6 @@
     const ok = await ensureLoggedIn();
     if (ok) {
       loadProfile();
-      loadProjects();
     }
   })();
 </script>
