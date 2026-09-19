@@ -61,6 +61,9 @@ const TRANSLATIONS = {
     alert_no_authorized: "Ei vielä yhtään valtuutettua osallistujaa.",
     error_prefix: "Virhe",
     error_project_id_missing: "Virhe: projektin id puuttuu osoitteesta",
+        new_participant_modal_heading: "Lisää osallistuja",
+    add_myself_btn: "Lisää minut projektiin",
+    contact_admin_note: "Ota yhteyttä projektin pääkäyttäjään, jos haluat lisätä jäseniä",
 
     // ryhmämodaalit
     modal_new_group: "Uusi ryhmä",
@@ -327,6 +330,9 @@ const TRANSLATIONS = {
     alert_no_authorized: "No authorized participants yet.",
     error_prefix: "Error",
     error_project_id_missing: "Error: project id missing from address",
+        new_participant_modal_heading: "Add participant",
+    add_myself_btn: "Add me to the project",
+    contact_admin_note: "Contact the project admin if you'd like to add members",
 
     modal_new_group: "New group",
     group_name_label: "Group name",
