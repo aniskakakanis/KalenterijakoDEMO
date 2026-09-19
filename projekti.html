@@ -151,6 +151,20 @@
   .lang-picker { margin-top: 14px; padding-top: 12px; border-top: 1px solid #EEF1F4; font-size: 12.5px; color: #586174; }
   .lang-btn { background: none; border: 1px solid #DBDFE5; color: #2A4B7C; padding: 4px 10px; font-size: 12px; margin: 6px 4px 0 0; border-radius: 999px; cursor: pointer; }
   .lang-btn.active { background: #2A4B7C; color: #fff; border-color: #2A4B7C; }
+    .invite-time { font-size: 15px; font-weight: 600; margin-top: 4px; }
+  .invite-textarea { width: 100%; padding: 8px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 13.5px; box-sizing: border-box; font-family: inherit; resize: vertical; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+  .attendee-chip { font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: #EEF1F4; border: 1px solid #DBDFE5; }
+  .attendee-chip.conflict { background: #FBE4E1; border-color: #E8938A; color: #8E2F26; }
+  .attendee-chip.nocal { background: #F2F3F5; border-color: #C9CFD7; color: #6B7280; font-style: italic; }
+  .copy-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 4px; }
+  .copy-box { flex: 1; padding: 7px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 12px; font-family: ui-monospace, Menlo, monospace; background: #F8F9FA; resize: vertical; box-sizing: border-box; }
+  .copy-btn { margin: 0; padding: 7px 12px; font-size: 12.5px; white-space: nowrap; }
+  .invite-legend { display: flex; gap: 16px; font-size: 11.5px; color: #586174; margin-top: 10px; }
+  .flag-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+  .flag-dot.conflict { background: #FBE4E1; border: 1px solid #E8938A; }
+  .flag-dot.nocal { background: #F2F3F5; border: 1px solid #C9CFD7; }
+  .invite-note { font-size: 12.5px; color: #586174; background: #F8F9FA; border: 1px solid #DBDFE5; border-radius: 8px; padding: 10px 12px; margin-top: 12px; }
 </style>
 </head>
 <body>
@@ -298,6 +312,10 @@ const paramsUrl = new URLSearchParams(window.location.search);
   let newGroupState = { selectedIds: new Set(), visibility: 'private', name: '' };
   let eventModalState = null;
   let myProfileData = null;
+    let currentAuthProvider = null;   // 'azure' | 'google'
+  // Kalenterin kirjoitusoikeus. Kytketään backendiin myöhemmin —
+  // toistaiseksi aina false, jolloin lähetysnappi on harmaa.
+  let canWriteCalendar = false;
 
   let sectionCollapsed = { people: false, owngroups: false, projectgroups: false };
 
@@ -308,6 +326,7 @@ const paramsUrl = new URLSearchParams(window.location.search);
       return false;
     }
     currentAccessToken = session.access_token;
+    currentAuthProvider = session.user?.app_metadata?.provider || null;
     return true;
   }
 
@@ -1064,6 +1083,8 @@ function openCreateEventModal() {
       preferAfternoon: eventModalState ? eventModalState.preferAfternoon : false,
       results: null,
       selectedResultIdx: 0,
+        inviteTitle: (eventModalState && eventModalState.inviteTitle) || '',
+      inviteBody: (eventModalState && eventModalState.inviteBody) || '',
       calAnchor: null,
     };
     renderEventSelectionStep();
@@ -1356,8 +1377,9 @@ function formatSlotLabel(slot) {
             </div>
           </div>
 
-          <div class="actions">
+                  <div class="actions">
             <button class="secondary" onclick="closeModal()">${t('close')}</button>
+            <button onclick="openInviteConfirmStep()">${t('create_invite_btn')}</button>
           </div>
         </div>
       </div>
@@ -1396,6 +1418,179 @@ function formatSlotLabel(slot) {
     const minutesFromWindowStart = (start.getHours() * 60 + start.getMinutes()) - HOURS_START * 60;
     el.scrollLeft = DAY_VISIBLE_PX + Math.max(0, minutesFromWindowStart) * PX_PER_MIN;
   }
+  // ---------------------------------------------------------------
+  // Kutsun varmistusnäkymä
+  // ---------------------------------------------------------------
+
+  // Purkaa ryhmät jäseniksi, poistaa duplikaatit (pakollinen voittaa),
+  // jättää järjestäjän itsensä pois ja merkitsee konfliktit.
+  function buildInviteAttendees() {
+    const s = eventModalState;
+    const roleById = {};
+
+    function assign(id, role) {
+      if (roleById[id] === 'required') return;
+      if (role === 'required' || !roleById[id]) roleById[id] = role;
+    }
+
+    Object.entries(s.peopleRoles).forEach(([id, role]) => assign(id, role));
+    Object.entries(s.groupRoles).forEach(([gid, role]) => {
+      const g = (latestStatus.groups || []).find((x) => x.id === gid);
+      if (!g) return;
+      (g.members || []).forEach((m) => assign(m.participantId, role));
+    });
+
+    const slot = s.results[s.selectedResultIdx];
+
+    const list = Object.entries(roleById).map(([id, role]) => {
+      const p = latestStatus.participants.find((x) => x.id === id);
+      if (!p) return null;
+      if (p.email.toLowerCase() === currentUserEmail) return null;
+
+      const hasCalendar = p.status === 'authorized' && !!p.scheduleItems;
+      const conflict = hasCalendar &&
+        resolvePersonBusy(id).some((b) => overlapsMs(slot.startMs, slot.endMs, b.startMs, b.endMs));
+
+      return {
+        role,
+        email: p.email,
+        name: nameLabelFor(p),
+        hasName: !!(p.firstName || p.lastName),
+        noCalendar: !hasCalendar,
+        conflict,
+      };
+    }).filter(Boolean);
+
+    list.sort((a, b) => a.name.localeCompare(b.name, 'fi'));
+
+    return {
+      required: list.filter((x) => x.role === 'required'),
+      optional: list.filter((x) => x.role === 'optional'),
+    };
+  }
+
+  // "Antti Heinonen <antti@firma.fi>; Heikki Jou <heikki@jou.fi>"
+  function attendeeAddressString(list) {
+    return list
+      .map((a) => (a.hasName ? `${a.name} <${a.email}>` : a.email))
+      .join('; ');
+  }
+
+  function attendeeChipsHtml(list) {
+    if (list.length === 0) return `<p class="empty-note">${t('invite_nobody')}</p>`;
+    return list.map((a) => {
+      let cls = 'attendee-chip';
+      let tip = '';
+      if (a.conflict) { cls += ' conflict'; tip = t('invite_flag_conflict'); }
+      else if (a.noCalendar) { cls += ' nocal'; tip = t('invite_flag_nocal'); }
+      return `<span class="${cls}" title="${tip}">${a.name}</span>`;
+    }).join('');
+  }
+
+  // 'google' | 'noauth' | 'ready'
+  function inviteSendState() {
+    if (currentAuthProvider === 'google') return 'google';
+    if (!canWriteCalendar) return 'noauth';
+    return 'ready';
+  }
+
+  function copyInviteField(fieldId) {
+    const el = document.getElementById(fieldId);
+    if (!el) return;
+    el.select();
+    const done = () => {
+      const btn = document.getElementById(fieldId + 'Btn');
+      if (!btn) return;
+      const prev = btn.textContent;
+      btn.textContent = t('copied_check');
+      setTimeout(() => { btn.textContent = prev; }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(el.value).then(done).catch(() => document.execCommand('copy') && done());
+    } else {
+      document.execCommand('copy');
+      done();
+    }
+  }
+
+  function openInviteConfirmStep() {
+    const s = eventModalState;
+    if (!s.inviteTitle) s.inviteTitle = latestStatus.project.name;
+    renderInviteConfirmStep();
+  }
+
+  function renderInviteConfirmStep() {
+    const s = eventModalState;
+    const slot = s.results[s.selectedResultIdx];
+    const { required, optional } = buildInviteAttendees();
+
+    const sendState = inviteSendState();
+    const sendDisabled = sendState !== 'ready';
+    const noteHtml = sendState === 'google'
+      ? `<p class="invite-note">${t('invite_note_google')}</p>`
+      : sendState === 'noauth'
+        ? `<p class="invite-note">${t('invite_note_noauth')}</p>`
+        : '';
+
+    const flagLegend = (required.concat(optional)).some((a) => a.conflict || a.noCalendar)
+      ? `<div class="invite-legend">
+           <span><span class="flag-dot conflict"></span>${t('invite_flag_conflict')}</span>
+           <span><span class="flag-dot nocal"></span>${t('invite_flag_nocal')}</span>
+         </div>`
+      : '';
+
+    document.getElementById('modalHost').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal event-modal">
+          <h3>${t('modal_invite_confirm')}</h3>
+
+          <div class="invite-time">${formatSlotLabel(slot)}</div>
+          <p class="empty-note" style="margin-top:2px;">${t('invite_organizer_is_you')}</p>
+
+          <label style="margin-top:14px;">${t('invite_subject_label')}</label>
+          <input type="text" value="${s.inviteTitle.replace(/"/g, '&quot;')}"
+                 oninput="eventModalState.inviteTitle = this.value" />
+
+          <label>${t('invite_body_label')}</label>
+          <textarea class="invite-textarea" rows="3"
+                    oninput="eventModalState.inviteBody = this.value">${s.inviteBody}</textarea>
+
+          <label>${t('invite_required_label')} (${required.length})</label>
+          <div class="chip-row">${attendeeChipsHtml(required)}</div>
+          <div class="copy-row">
+            <textarea id="copyRequired" class="copy-box" readonly rows="2">${attendeeAddressString(required)}</textarea>
+            <button type="button" class="secondary copy-btn" id="copyRequiredBtn"
+                    onclick="copyInviteField('copyRequired')">${t('copy_btn')}</button>
+          </div>
+
+          <label>${t('invite_optional_label')} (${optional.length})</label>
+          <div class="chip-row">${attendeeChipsHtml(optional)}</div>
+          <div class="copy-row">
+            <textarea id="copyOptional" class="copy-box" readonly rows="2">${attendeeAddressString(optional)}</textarea>
+            <button type="button" class="secondary copy-btn" id="copyOptionalBtn"
+                    onclick="copyInviteField('copyOptional')">${t('copy_btn')}</button>
+          </div>
+
+          ${flagLegend}
+          ${noteHtml}
+
+          <div class="actions">
+            <button class="secondary" onclick="renderEventResultsStep()">${t('back_btn')}</button>
+            <button id="sendInviteBtn" ${sendDisabled ? 'disabled' : ''}
+                    onclick="sendInvite()">${t('send_invites_btn')}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function sendInvite() {
+    // Kytketään create-event-funktioon seuraavassa vaiheessa.
+    alert(t('invite_not_wired_yet'));
+  }
+
+
+  
 function isoToDatetimeLocal(iso) {
     return iso.slice(0, 16);
   }
