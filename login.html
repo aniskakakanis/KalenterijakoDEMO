@@ -39,6 +39,7 @@
 <div class="divider" data-i18n="divider_or"></div>
 
 <button class="secondary" onclick="loginWithMicrosoft()" data-i18n="login_microsoft_btn"></button>
+  <button class="secondary" onclick="loginWithGoogle()" data-i18n="login_google_btn"></button>
 
 <script src="/translations.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -82,6 +83,16 @@
       },
     });
   }
+
+  function loginWithGoogle() {
+  client.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      scopes: 'email',
+      redirectTo: window.location.origin + '/projektit.html',
+    },
+  });
+}
 
   applyStaticTranslations();
   updateFlagActiveState();
