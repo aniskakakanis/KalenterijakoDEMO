@@ -14,6 +14,7 @@ const TRANSLATIONS = {
     role_app_admin: "Sovelluksen pääkäyttäjä",
     role_org_admin: "Organisaation pääkäyttäjä",
     role_user: "Käyttäjä",
+    team_label: "Funktio / tiimi",
 
     // projektit.html
     page_title_projects: "Yhteisikkuna — Omat projektit",
@@ -497,6 +498,7 @@ const TRANSLATIONS = {
     empty_no_project_memberships: "No project memberships.",
     confirm_delete_user_1: "Delete user {{email}} COMPLETELY from the app?\n\nThis removes them from all projects and clients, and deletes their login account entirely. This cannot be undone.",
     confirm_delete_user_2: "Are you absolutely sure? Confirm once more in your mind: {{email}} will be permanently deleted.",
+    
 
     heading_my_profile: "My profile",
     first_name_label: "First name",
@@ -548,6 +550,7 @@ const TRANSLATIONS = {
     banner_auth_error: "Authorization failed, please try again.",
     banner_email_mismatch: "You authorized the calendar with a different Microsoft account than the invitation was sent to. Use the same account for both steps.",
     invite_not_found: "Invitation not found",
+    team_label: "Function / team",
 
     logout: "Log out",
     my_settings: "My settings",
