@@ -615,7 +615,7 @@ function bufferDates(anchor) {
   const GOOGLE_CLIENT_ID = "1023786751364-dbpmrjj0k1fggbfbb88r7p167o6bt84h.apps.googleusercontent.com";
   const GOOGLE_CALENDAR_REDIRECT_URI = "https://nrrhvbxvkizvkcwwglck.supabase.co/functions/v1/google-auth-callback";
 
-  async function startCalendarAuthForParticipant(participantId) {
+    async function startCalendarAuthForParticipant(participantId, wantsWrite) {
     const { data: { session } } = await client.auth.getSession();
     const provider = session?.user?.app_metadata?.provider;
 
@@ -631,6 +631,21 @@ function bufferDates(anchor) {
       window.location.href = authUrl.toString();
       return;
     }
+
+    // Jos kirjoitusoikeus on jo annettu, säilytetään se myös silloin kun
+    // valtuutus uusitaan lukuoikeuden napista — muuten oikeus katoaisi hiljaisesti.
+    const write = !!wantsWrite;
+    const authUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
+    authUrl.searchParams.set('client_id', CLIENT_ID);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('redirect_uri', CALENDAR_REDIRECT_URI);
+    authUrl.searchParams.set('response_mode', 'query');
+    authUrl.searchParams.set('scope', write
+      ? 'User.Read Calendars.Read Calendars.ReadWrite offline_access'
+      : 'User.Read Calendars.Read offline_access');
+    authUrl.searchParams.set('state', write ? participantId + '|rw' : participantId);
+    window.location.href = authUrl.toString();
+  }
 
     const authUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
     authUrl.searchParams.set('client_id', CLIENT_ID);
@@ -659,8 +674,9 @@ async function loadStatus() {
       return;
     }
 
-    latestStatus = data;
+      latestStatus = data;
     currentUserEmail = data.currentUserEmail;
+    canWriteCalendar = !!data.currentUserCanWrite;
 
     if (!anchorDateStr) {
       anchorDateStr = todayDateStr();
@@ -684,7 +700,7 @@ async function loadStatus() {
             <p class="sub">${t('calendar_expired_body', { projectName: '<strong>' + latestStatus.project.name + '</strong>' })}</p>
             <div class="actions">
               <button class="secondary" onclick="closeModal()">${t('close')}</button>
-              <button onclick="startCalendarAuthForParticipant('${mine.id}')">${t('attach_calendar_btn')}</button>
+                            <button onclick="startCalendarAuthForParticipant('${mine.id}', ${canWriteCalendar})">${t('attach_calendar_btn')}</button>
             </div>
           </div>
         </div>
@@ -1451,7 +1467,8 @@ function formatSlotLabel(slot) {
       const conflict = hasCalendar &&
         resolvePersonBusy(id).some((b) => overlapsMs(slot.startMs, slot.endMs, b.startMs, b.endMs));
 
-      return {
+            return {
+        id,
         role,
         email: p.email,
         name: nameLabelFor(p),
@@ -1584,9 +1601,72 @@ function formatSlotLabel(slot) {
     `;
   }
 
+    function localDateTimeString(date) {
+    const p = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}` +
+           `T${p(date.getHours())}:${p(date.getMinutes())}:00`;
+  }
+
   async function sendInvite() {
-    // Kytketään create-event-funktioon seuraavassa vaiheessa.
-    alert(t('invite_not_wired_yet'));
+    const s = eventModalState;
+    const btn = document.getElementById('sendInviteBtn');
+    if (btn) { btn.disabled = true; btn.textContent = t('sending_label'); }
+
+    const { required, optional } = buildInviteAttendees();
+    const slot = s.results[s.selectedResultIdx];
+
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-event`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          projectId: PROJECT_ID,
+          requiredIds: required.map((a) => a.id),
+          optionalIds: optional.map((a) => a.id),
+          subject: s.inviteTitle,
+          body: s.inviteBody,
+          start: localDateTimeString(new Date(slot.startMs)),
+          end: localDateTimeString(new Date(slot.endMs)),
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Helsinki',
+        }),
+      });
+      const data = await res.json();
+
+      if (data.error) {
+        alert(t('invite_send_failed') + ': ' + data.error);
+        if (btn) { btn.disabled = false; btn.textContent = t('send_invites_btn'); }
+        return;
+      }
+
+      renderInviteSentStep(data);
+    } catch (err) {
+      alert(t('invite_send_failed') + ': ' + err.message);
+      if (btn) { btn.disabled = false; btn.textContent = t('send_invites_btn'); }
+    }
+  }
+
+  function renderInviteSentStep(data) {
+    const teamsHtml = data.teamsUrl
+      ? `<p class="empty-note" style="margin-top:10px;">${t('teams_link_label')}:<br>
+           <a href="${data.teamsUrl}" target="_blank" style="color:#2A4B7C; word-break:break-all;">${data.teamsUrl}</a></p>`
+      : '';
+    const openHtml = data.webLink
+      ? `<p style="margin-top:10px;"><a href="${data.webLink}" target="_blank" style="color:#2A4B7C;">${t('open_in_calendar')}</a></p>`
+      : '';
+
+    document.getElementById('modalHost').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal">
+          <h3>${t('invite_sent_heading')}</h3>
+          <p class="sub">${t('invite_sent_body', { count: data.attendeeCount })}</p>
+          ${teamsHtml}
+          ${openHtml}
+          <div class="actions">
+            <button onclick="closeModal()">${t('close')}</button>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
 
@@ -1614,7 +1694,8 @@ function isoToDatetimeLocal(iso) {
 
     settingsState = {
       participantId: data.participantId,
-      calendarStatus: data.calendarStatus,
+        calendarStatus: data.calendarStatus,
+      calendarWrite: !!data.calendarWrite,
       tokenUpdatedAt: data.tokenUpdatedAt,
       fullyHidden: !!data.fullyHidden,
       windowsByDay: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] },
@@ -1664,14 +1745,14 @@ function isoToDatetimeLocal(iso) {
       return `
         <div class="calendar-section">
           <p class="warn-text">${t('calendar_expired_warn')}</p>
-          <button type="button" onclick="startCalendarAuthForParticipant('${s.participantId}')">${t('retry_auth_btn')}</button>
+          <button type="button" onclick="startCalendarAuthForParticipant('${s.participantId}', ${s.calendarWrite})">${t('retry_auth_btn')}</button>
         </div>
       `;
     }
     return `
       <div class="calendar-section">
         <p class="empty-note">${t('calendar_not_authorized')}</p>
-        <button type="button" onclick="startCalendarAuthForParticipant('${s.participantId}')">${t('grant_calendar_access')}</button>
+        <button type="button" onclick="startCalendarAuthForParticipant('${s.participantId}', ${s.calendarWrite})">${t('grant_calendar_access')}</button>
       </div>
     `;
   }
@@ -1689,6 +1770,32 @@ function isoToDatetimeLocal(iso) {
 
     closeModal();
     loadStatus();
+  }
+
+
+    function writeAccessSectionHtml() {
+    if (currentAuthProvider === 'google') return '';
+    const s = settingsState;
+    if (s.calendarWrite) {
+      return `
+        <div class="calendar-section" style="margin-top:18px;">
+          <label style="margin-top:0; color:#161B22; font-weight:600;">${t('write_section_title')}</label>
+          <p class="ok-text">${t('write_granted_ok')}</p>
+        </div>
+      `;
+    }
+    return `
+      <div class="calendar-section" style="margin-top:18px;">
+        <label style="margin-top:0; color:#161B22; font-weight:600;">${t('write_section_title')}</label>
+        <p class="empty-note">${t('write_section_explain')}</p>
+        <button type="button" onclick="startWriteAuth()">${t('grant_write_btn')}</button>
+      </div>
+    `;
+  }
+
+  function startWriteAuth() {
+    if (!confirm(t('confirm_write_auth'))) return;
+    startCalendarAuthForParticipant(settingsState.participantId, true);
   }
 
   async function leaveProjectConfirm() {
@@ -1805,6 +1912,8 @@ function isoToDatetimeLocal(iso) {
             <button class="secondary" onclick="closeModal()">${t('cancel')}</button>
             <button onclick="saveSettingsSubmit()">${t('save_btn')}</button>
           </div>
+
+                ${writeAccessSectionHtml()}
 
           <div class="danger-zone">
             <button class="danger" type="button" onclick="leaveProjectConfirm()">${t('leave_project_btn')}</button>
