@@ -196,7 +196,7 @@
 
 <div class="toolbar">
   <button onclick="openGroupModal()" data-i18n="btn_new_group"></button>
-  <button onclick="addParticipant()" data-i18n="btn_add_participant"></button>
+  <button id="addParticipantBtn" onclick="openAddParticipantModal()" data-i18n="btn_add_participant"></button>
   <button onclick="openCreateEventModal()" data-i18n="btn_new_event"></button>
   <button class="secondary" onclick="refreshSchedules()" data-i18n="btn_refresh_schedules"></button>
   <button class="secondary" onclick="openSettingsModal()" data-i18n="btn_settings"></button>
@@ -727,6 +727,14 @@ async function loadStatus() {
 
     document.getElementById('projectName').textContent = data.project.name;
     document.getElementById('projectOwner').textContent = t('responsible_person') + ': ' + data.project.owner_email;
+        const addBtn = document.getElementById('addParticipantBtn');
+    if (isAdminForProject(data)) {
+      addBtn.disabled = false;
+      addBtn.title = '';
+    } else {
+      addBtn.disabled = true;
+      addBtn.title = t('contact_admin_note');
+    }
 
     document.getElementById('mainRuler').style.width = totalWidthPx() + 'px';
     document.getElementById('mainRuler').innerHTML = rulerHtml();
@@ -840,26 +848,71 @@ async function loadStatus() {
     timelineCol.appendChild(tRow);
   }
 
-  async function addParticipant() {
-    const email = prompt(t('prompt_participant_email'));
-    if (!email) return;
+  function openAddParticipantModal() {
+    document.getElementById('modalHost').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal">
+          <h3>${t('new_participant_modal_heading')}</h3>
 
+          <label style="margin-top:0;">${t('col_first_name')}</label>
+          <input type="text" id="npFirstName" />
+          <label>${t('col_last_name')}</label>
+          <input type="text" id="npLastName" />
+          <label>${t('col_title')}</label>
+          <input type="text" id="npTitle" />
+          <label>${t('col_email')}</label>
+          <input type="text" id="npEmail" />
+          <label>${t('col_role')}</label>
+          <select id="npRole">
+            <option value="guest">${t('role_guest')}</option>
+            <option value="admin">${t('role_admin')}</option>
+          </select>
+
+          <div class="actions">
+            <button class="secondary" onclick="addMyselfToProject()">${t('add_myself_btn')}</button>
+            <button class="secondary" onclick="closeModal()">${t('cancel')}</button>
+            <button onclick="submitAddParticipant()">${t('btn_add_participant')}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function submitParticipantInvite(email, firstName, lastName, title, role) {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/invite-participant`, {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ projectId: PROJECT_ID, email }),
+      body: JSON.stringify({ projectId: PROJECT_ID, email, firstName, lastName, title, role }),
     });
     const data = await res.json();
 
     if (data.error) {
-      document.getElementById('inviteResult').textContent = t('error_prefix') + ': ' + data.error;
+      alert(t('error_prefix') + ': ' + data.error);
       return;
     }
 
+    closeModal();
     document.getElementById('inviteResult').innerHTML =
       t('invite_link_label') + ': <a href="' + data.inviteLink + '" target="_blank">' + data.inviteLink + '</a>';
 
     loadStatus();
+  }
+
+  function submitAddParticipant() {
+    const email = document.getElementById('npEmail').value.trim();
+    if (!email) { alert(t('error_prefix') + ': ' + t('col_email')); return; }
+
+    submitParticipantInvite(
+      email,
+      document.getElementById('npFirstName').value,
+      document.getElementById('npLastName').value,
+      document.getElementById('npTitle').value,
+      document.getElementById('npRole').value
+    );
+  }
+
+  function addMyselfToProject() {
+    submitParticipantInvite(currentUserEmail, '', '', '', 'admin');
   }
 
   async function refreshSchedules() {
