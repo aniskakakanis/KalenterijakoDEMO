@@ -64,6 +64,7 @@ const TRANSLATIONS = {
         new_participant_modal_heading: "Lisää osallistuja",
     add_myself_btn: "Lisää minut projektiin",
     contact_admin_note: "Ota yhteyttä projektin pääkäyttäjään, jos haluat lisätä jäseniä",
+        add_myself_checkbox_label: "Lisää itsesi projektin jäseneksi",
 
     // ryhmämodaalit
     modal_new_group: "Uusi ryhmä",
@@ -333,6 +334,7 @@ const TRANSLATIONS = {
         new_participant_modal_heading: "Add participant",
     add_myself_btn: "Add me to the project",
     contact_admin_note: "Contact the project admin if you'd like to add members",
+        add_myself_checkbox_label: "Add yourself as a project member",
 
     modal_new_group: "New group",
     group_name_label: "Group name",
