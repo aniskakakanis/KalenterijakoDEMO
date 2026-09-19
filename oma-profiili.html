@@ -100,7 +100,9 @@
       <label>${t('title_label')}</label>
       <input type="text" id="titleInput" value="${data.title}" />
       <label>${t('organization_label')}</label>
-      <input type="text" id="organizationInput" value="${data.organization}" />
+      <input type="text" id="organizationInput" value="${data.organization}" ${data.orgLocked ? 'disabled style="background:#EEF1F4; color:#586174;"' : ''} />
+      <label>${t('team_label')}</label>
+      <input type="text" id="teamInput" value="${data.team || ''}" />
       <label>${t('email_label')}</label>
       <input type="text" value="${data.email}" disabled />
       <div style="margin-top:16px;">
@@ -116,7 +118,8 @@
       firstName: document.getElementById('firstNameInput').value,
       lastName: document.getElementById('lastNameInput').value,
       title: document.getElementById('titleInput').value,
-      organization: document.getElementById('organizationInput').value,
+           organization: document.getElementById('organizationInput').value,
+      team: document.getElementById('teamInput').value,
       language: getCurrentLanguage(),
     };
 
