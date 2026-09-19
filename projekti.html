@@ -942,11 +942,14 @@ async function loadStatus() {
     loadStatus();
   }
 
-  function addMyselfToProject() {
-    submitParticipantInvite(currentUserEmail, '', '', '', 'admin').then(() => {
-      closeModal();
-      loadStatus();
-    });
+  async function addMyselfToProject() {
+    const data = await submitParticipantInvite(currentUserEmail, '', '', '', 'admin');
+    if (data.error) {
+      alert(t('error_prefix') + ': ' + data.error);
+      return;
+    }
+    closeModal();
+    loadStatus();
   }
   async function submitParticipantInvite(email, firstName, lastName, title, role) {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/invite-participant`, {
