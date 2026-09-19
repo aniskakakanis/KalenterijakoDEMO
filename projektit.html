@@ -195,7 +195,9 @@
     document.getElementById('myProfileBtn').textContent = name;
     document.getElementById('panelName').textContent = name;
     document.getElementById('panelEmail').textContent = data.email;
-    document.getElementById('panelOrg').textContent = data.organization || '';
+     document.getElementById('panelOrg').innerHTML = data.organization
+      ? data.organization + (data.team ? '<br><span style="font-size:11.5px; color:#8A93A3;">' + data.team + '</span>' : '')
+      : '';
     document.getElementById('panelRole').textContent = t(data.roleKey);
   }
 
