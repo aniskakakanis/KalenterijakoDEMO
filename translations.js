@@ -65,6 +65,13 @@ const TRANSLATIONS = {
     add_myself_btn: "Lisää minut projektiin",
     contact_admin_note: "Ota yhteyttä projektin pääkäyttäjään, jos haluat lisätä jäseniä",
         add_myself_checkbox_label: "Lisää itsesi projektin jäseneksi",
+    settings_tab_own: "Omat asetukset",
+    settings_tab_project: "Projektin asetukset",
+    manage_members_heading: "Hallinnoi jäseniä",
+    remove_participant_btn: "Poista",
+    confirm_remove_participant: "Poistetaanko {{name}} projektista?",
+    project_name_saved: "Projektin nimi tallennettu.",
+    
 
     // ryhmämodaalit
     modal_new_group: "Uusi ryhmä",
@@ -383,6 +390,12 @@ const TRANSLATIONS = {
     alert_no_slots_found: "No suitable time found with these conditions — try widening the search range or reducing required attendees.",
     suggested_times: "Suggested times",
     add_more_people_groups: "+ Add more people / groups",
+        settings_tab_own: "My settings",
+    settings_tab_project: "Project settings",
+    manage_members_heading: "Manage members",
+    remove_participant_btn: "Remove",
+    confirm_remove_participant: "Remove {{name}} from the project?",
+    project_name_saved: "Project name saved.",
     
     // Invitation review step
     create_invite_btn: "Create invitation",
