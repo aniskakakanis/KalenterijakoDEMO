@@ -644,19 +644,10 @@ function bufferDates(anchor) {
       ? 'User.Read Calendars.Read Calendars.ReadWrite offline_access'
       : 'User.Read Calendars.Read offline_access');
        // Kolmas osa kertoo auth-callbackille että paluu tapahtuu tälle projektisivulle.
-    authUrl.searchParams.set('state', `${participantId}|${write ? 'rw' : ''}|p:${PROJECT_ID}`);
+      authUrl.searchParams.set('state', `${participantId}|${write ? 'rw' : ''}|p:${PROJECT_ID}`);
     window.location.href = authUrl.toString();
   }
 
-    const authUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
-    authUrl.searchParams.set('client_id', CLIENT_ID);
-    authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('redirect_uri', CALENDAR_REDIRECT_URI);
-    authUrl.searchParams.set('response_mode', 'query');
-    authUrl.searchParams.set('scope', 'User.Read Calendars.Read offline_access');
-    authUrl.searchParams.set('state', participantId);
-    window.location.href = authUrl.toString();
-  }
 async function loadStatus() {
     if (!PROJECT_ID) {
       document.getElementById('projectName').textContent = t('error_project_id_missing');
