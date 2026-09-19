@@ -134,6 +134,12 @@
 
   .event-two-col { display: flex; gap: 16px; }
   .event-two-col > div { flex: 1; min-width: 0; }
+  .np-member-header { display: grid; grid-template-columns: 1fr 1fr 1fr 1.4fr 110px 26px; gap: 8px; font-size: 12px; color: #8A93A3; margin-bottom: 6px; }
+  .np-member-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1.4fr 110px 26px; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .np-member-row input, .np-member-row select { padding: 7px 8px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 13px; box-sizing: border-box; width: 100%; }
+  .np-member-row .remove-row-btn { background: none; border: none; color: #C0453A; cursor: pointer; font-size: 15px; padding: 0; margin: 0; }
+
+  
   .event-range-row { display: flex; align-items: center; gap: 8px; }
   .event-range-row input[type=datetime-local] { flex: 1; padding: 7px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 12.5px; }
   .pref-row { display: flex; gap: 14px; font-size: 13px; margin-top: 6px; flex-wrap: wrap; }
@@ -848,28 +854,44 @@ async function loadStatus() {
     timelineCol.appendChild(tRow);
   }
 
+   let npRows = [{ firstName: '', lastName: '', title: '', email: '', role: 'guest' }];
+
   function openAddParticipantModal() {
+    npRows = [{ firstName: '', lastName: '', title: '', email: '', role: 'guest' }];
+    renderAddParticipantModal();
+  }
+
+  function renderAddParticipantModal() {
+    const alreadyIn = latestStatus.participants.some((p) => p.email.toLowerCase() === currentUserEmail);
+    const addMyselfBtnHtml = alreadyIn ? '' : `<button class="secondary" onclick="addMyselfToProject()">${t('add_myself_btn')}</button>`;
+
+    const rowsHtml = npRows.map((r, i) => `
+      <div class="np-member-row">
+        <input type="text" value="${r.firstName}" oninput="updateNpRow(${i},'firstName',this.value)" />
+        <input type="text" value="${r.lastName}" oninput="updateNpRow(${i},'lastName',this.value)" />
+        <input type="text" value="${r.title}" oninput="updateNpRow(${i},'title',this.value)" />
+        <input type="text" value="${r.email}" placeholder="sahkoposti@yritys.fi" oninput="updateNpRow(${i},'email',this.value)" />
+        <select onchange="updateNpRow(${i},'role',this.value)">
+          <option value="guest" ${r.role === 'guest' ? 'selected' : ''}>${t('role_guest')}</option>
+          <option value="admin" ${r.role === 'admin' ? 'selected' : ''}>${t('role_admin')}</option>
+        </select>
+        <button type="button" class="remove-row-btn" onclick="removeNpRow(${i})">✕</button>
+      </div>
+    `).join('');
+
     document.getElementById('modalHost').innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
-        <div class="modal">
+        <div class="modal event-modal">
           <h3>${t('new_participant_modal_heading')}</h3>
 
-          <label style="margin-top:0;">${t('col_first_name')}</label>
-          <input type="text" id="npFirstName" />
-          <label>${t('col_last_name')}</label>
-          <input type="text" id="npLastName" />
-          <label>${t('col_title')}</label>
-          <input type="text" id="npTitle" />
-          <label>${t('col_email')}</label>
-          <input type="text" id="npEmail" />
-          <label>${t('col_role')}</label>
-          <select id="npRole">
-            <option value="guest">${t('role_guest')}</option>
-            <option value="admin">${t('role_admin')}</option>
-          </select>
+          <div class="np-member-header">
+            <span>${t('col_first_name')}</span><span>${t('col_last_name')}</span><span>${t('col_title')}</span><span>${t('col_email')}</span><span>${t('col_role')}</span><span></span>
+          </div>
+          ${rowsHtml}
+          <button type="button" class="secondary" style="margin-top:4px;" onclick="addNpRow()">${t('add_member_btn')}</button>
 
           <div class="actions">
-            <button class="secondary" onclick="addMyselfToProject()">${t('add_myself_btn')}</button>
+            ${addMyselfBtnHtml}
             <button class="secondary" onclick="closeModal()">${t('cancel')}</button>
             <button onclick="submitAddParticipant()">${t('btn_add_participant')}</button>
           </div>
@@ -878,6 +900,54 @@ async function loadStatus() {
     `;
   }
 
+  function addNpRow() {
+    npRows.push({ firstName: '', lastName: '', title: '', email: '', role: 'guest' });
+    renderAddParticipantModal();
+  }
+
+  function removeNpRow(idx) {
+    npRows.splice(idx, 1);
+    if (npRows.length === 0) npRows = [{ firstName: '', lastName: '', title: '', email: '', role: 'guest' }];
+    renderAddParticipantModal();
+  }
+
+  function updateNpRow(idx, field, value) {
+    npRows[idx][field] = value;
+  }
+
+  async function submitParticipantInvite(email, firstName, lastName, title, role) {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/invite-participant`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ projectId: PROJECT_ID, email, firstName, lastName, title, role }),
+    });
+    return res.json();
+  }
+
+  async function submitAddParticipant() {
+    const rowsToSend = npRows.filter((r) => r.email.trim() !== '');
+    if (rowsToSend.length === 0) { alert(t('error_prefix') + ': ' + t('col_email')); return; }
+
+    const links = [];
+    const errors = [];
+
+    for (const r of rowsToSend) {
+      const data = await submitParticipantInvite(r.email.trim(), r.firstName, r.lastName, r.title, r.role);
+      if (data.error) errors.push(`${r.email}: ${data.error}`);
+      else links.push(`${t('invite_link_label')} (${r.email}): <a href="${data.inviteLink}" target="_blank">${data.inviteLink}</a>`);
+    }
+
+    closeModal();
+    document.getElementById('inviteResult').innerHTML = links.join('<br>') + (errors.length ? '<br>' + t('error_prefix') + ': ' + errors.join(', ') : '');
+    loadStatus();
+  }
+
+  function addMyselfToProject() {
+    submitParticipantInvite(currentUserEmail, '', '', '', 'admin').then(() => {
+      closeModal();
+      loadStatus();
+    });
+  }
   async function submitParticipantInvite(email, firstName, lastName, title, role) {
     const res = await fetch(`${SUPABASE_URL}/functions/v1/invite-participant`, {
       method: 'POST',
