@@ -94,14 +94,18 @@
     const profileData = await profileRes.json();
 
     if (!profileData.profileCompleted) {
-      showFirstLoginProfilePopup();
+      showFirstLoginProfilePopup(data.organizationName || null);
       return;
     }
 
     window.location.href = '/projektit.html';
   }
 
-  function showFirstLoginProfilePopup() {
+  function showFirstLoginProfilePopup(organizationName) {
+    const orgFieldHtml = organizationName
+      ? `<input type="text" id="fpOrganization" value="${organizationName}" disabled style="background:#EEF1F4; color:#586174;" />`
+      : `<input type="text" id="fpOrganization" />`;
+
     document.body.insertAdjacentHTML('beforeend', `
       <div id="profilePopupOverlay" style="position:fixed; inset:0; background:rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center; z-index:10;">
         <div style="background:#fff; border-radius:12px; padding:22px; width:340px; max-width:90vw;">
@@ -113,19 +117,22 @@
           <label>${t('title_label')}</label>
           <input type="text" id="fpTitle" />
           <label>${t('organization_label')}</label>
-          <input type="text" id="fpOrganization" />
-          <button style="margin-top:16px;" onclick="submitFirstLoginProfile()">${t('save_and_continue_btn')}</button>
+          ${orgFieldHtml}
+          <label>${t('team_label')}</label>
+          <input type="text" id="fpTeam" />
+          <button style="margin-top:16px;" onclick="submitFirstLoginProfile('${organizationName ? organizationName.replace(/'/g, "\\'") : ''}')">${t('save_and_continue_btn')}</button>
         </div>
       </div>
     `);
   }
 
-  async function submitFirstLoginProfile() {
+  async function submitFirstLoginProfile(lockedOrganizationName) {
     const body = {
       firstName: document.getElementById('fpFirstName').value,
       lastName: document.getElementById('fpLastName').value,
       title: document.getElementById('fpTitle').value,
-      organization: document.getElementById('fpOrganization').value,
+      organization: lockedOrganizationName || document.getElementById('fpOrganization').value,
+      team: document.getElementById('fpTeam').value,
       language: getCurrentLanguage(),
     };
 
