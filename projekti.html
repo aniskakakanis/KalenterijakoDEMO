@@ -131,6 +131,13 @@
   .calendar-section .meta { color: #8A93A3; font-size: 12px; margin-top: 4px; }
 
   .danger-zone { border-top: 1px solid #EEF1F4; margin-top: 18px; padding-top: 14px; }
+    .settings-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid #EEF1F4; }
+  .settings-tab-btn { background: none; border: none; padding: 8px 4px; font-size: 13.5px; color: #8A93A3; cursor: pointer; border-bottom: 2px solid transparent; margin: 0; }
+  .settings-tab-btn.active { color: #2A4B7C; border-bottom-color: #2A4B7C; font-weight: 600; }
+  .member-manage-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px solid #EEF1F4; gap: 8px; }
+  .member-manage-row:first-child { border-top: none; }
+  .member-manage-row .mm-name { font-size: 13.5px; flex: 1; min-width: 0; }
+  .member-manage-row select { padding: 5px 6px; border: 1px solid #DBDFE5; border-radius: 6px; font-size: 12.5px; }
 
   .event-two-col { display: flex; gap: 16px; }
   .event-two-col > div { flex: 1; min-width: 0; }
@@ -314,6 +321,7 @@ const paramsUrl = new URLSearchParams(window.location.search);
   let latestStatus = null;
   let anchorDateStr = null;
   let settingsState = null;
+  let settingsActiveTab = 'own';
   let expiredPopupShown = false;
   let newGroupState = { selectedIds: new Set(), visibility: 'private', name: '' };
   let eventModalState = null;
@@ -1822,7 +1830,9 @@ function isoToDatetimeLocal(iso) {
     return value + ':00.000Z';
   }
 
-  async function openSettingsModal() {
+async function openSettingsModal() {
+    settingsActiveTab = 'own';
+
     const res = await fetch(`${SUPABASE_URL}/functions/v1/get-participant-settings`, {
       method: 'POST',
       headers: authHeaders(),
@@ -1994,9 +2004,40 @@ function isoToDatetimeLocal(iso) {
     settingsState.blackouts[idx][field] = value;
   }
 
+   function switchSettingsTab(tab) {
+    settingsActiveTab = tab;
+    renderSettingsModal();
+  }
+
   function renderSettingsModal() {
-    const wdShort = weekdayShortArr();
+    const admin = isAdminForProject(latestStatus);
+
+    const tabsHtml = admin ? `
+      <div class="settings-tabs">
+        <button type="button" class="settings-tab-btn ${settingsActiveTab === 'own' ? 'active' : ''}" onclick="switchSettingsTab('own')">${t('settings_tab_own')}</button>
+        <button type="button" class="settings-tab-btn ${settingsActiveTab === 'project' ? 'active' : ''}" onclick="switchSettingsTab('project')">${t('settings_tab_project')}</button>
+      </div>
+    ` : '';
+
+    const bodyHtml = (!admin || settingsActiveTab === 'own') ? renderOwnSettingsTabHtml() : renderProjectSettingsTabHtml();
+
+    document.getElementById('modalHost').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal settings-modal">
+          <h3>${t('modal_settings')}</h3>
+          ${tabsHtml}
+          ${bodyHtml}
+          <div class="actions">
+            <button class="secondary" onclick="closeModal()">${t('close')}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderOwnSettingsTabHtml() {
     let daysHtml = '';
+    const wdShort = weekdayShortArr();
     for (let d = 0; d < 7; d++) {
       const ranges = settingsState.windowsByDay[d];
       const enabled = ranges.length > 0;
@@ -2019,6 +2060,110 @@ function isoToDatetimeLocal(iso) {
         </div>
       `;
     }
+
+    const blackoutsHtml = settingsState.blackouts.map((b, idx) => `
+      <div class="blackout-row">
+        <input type="datetime-local" value="${b.startAt}" onchange="updateBlackoutField(${idx}, 'startAt', this.value)" />
+        <span>–</span>
+        <input type="datetime-local" value="${b.endAt}" onchange="updateBlackoutField(${idx}, 'endAt', this.value)" />
+        <button type="button" class="remove-x" onclick="removeBlackout(${idx})">✕</button>
+      </div>
+    `).join('') || `<p class="empty-note">${t('no_blackouts')}</p>`;
+
+    return `
+      ${viewPrefsSectionHtml()}
+      ${calendarSectionHtml()}
+
+      <label style="margin-top:0;">${t('show_calendar_to_others')}</label>
+      <p class="empty-note" style="margin-top:-2px;">${t('show_calendar_note')}</p>
+      ${daysHtml}
+
+      <label style="margin-top:16px;">${t('restrict_visibility_label')}</label>
+      <div id="blackoutsList">${blackoutsHtml}</div>
+      <button type="button" class="secondary" onclick="addBlackout()">${t('add_new_btn')}</button>
+
+      <label class="fully-hidden-row">
+        <input type="checkbox" ${settingsState.fullyHidden ? 'checked' : ''} onchange="settingsState.fullyHidden = this.checked" />
+        ${t('hide_calendar_fully')}
+      </label>
+
+      <div class="actions">
+        <button onclick="saveSettingsSubmit()">${t('save_btn')}</button>
+      </div>
+
+      <div class="danger-zone">
+        <button class="danger" type="button" onclick="leaveProjectConfirm()">${t('leave_project_btn')}</button>
+      </div>
+    `;
+  }
+
+  function renderProjectSettingsTabHtml() {
+    const membersHtml = latestStatus.participants.map((p) => `
+      <div class="member-manage-row">
+        <span class="mm-name">${nameLabelFor(p)}</span>
+        <select onchange="changeParticipantRole('${p.id}', this.value)">
+          <option value="guest" ${p.role === 'guest' ? 'selected' : ''}>${t('role_guest')}</option>
+          <option value="admin" ${p.role === 'admin' ? 'selected' : ''}>${t('role_admin')}</option>
+        </select>
+        <button type="button" class="danger" style="padding:5px 10px; font-size:12px;" onclick="removeParticipantFromProject('${p.id}','${nameLabelFor(p).replace(/'/g, "\\'")}')">${t('remove_participant_btn')}</button>
+      </div>
+    `).join('');
+
+    return `
+      <label style="margin-top:0;">${t('project_name_label')}</label>
+      <input type="text" id="projectNameEditInput" value="${latestStatus.project.name}" />
+      <div class="actions" style="margin-top:8px;">
+        <button onclick="saveProjectName()">${t('save_btn')}</button>
+      </div>
+
+      <label style="margin-top:20px;">${t('manage_members_heading')}</label>
+      <div>${membersHtml}</div>
+    `;
+  }
+
+  async function saveProjectName() {
+    const name = document.getElementById('projectNameEditInput').value.trim();
+    if (!name) return;
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/update-project`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ projectId: PROJECT_ID, name }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(t('error_prefix') + ': ' + data.error); return; }
+
+    await loadStatus();
+    alert(t('project_name_saved'));
+  }
+
+  async function changeParticipantRole(participantId, role) {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/update-participant-role`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ projectId: PROJECT_ID, participantId, role }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(t('error_prefix') + ': ' + data.error); }
+
+    await loadStatus();
+    renderSettingsModal();
+  }
+
+  async function removeParticipantFromProject(participantId, name) {
+    if (!confirm(t('confirm_remove_participant', { name }))) return;
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/remove-participant-from-project`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ projectId: PROJECT_ID, participantId }),
+    });
+    const data = await res.json();
+    if (data.error) { alert(t('error_prefix') + ': ' + data.error); return; }
+
+    await loadStatus();
+    renderSettingsModal();
+  }
 
     const blackoutsHtml = settingsState.blackouts.map((b, idx) => `
       <div class="blackout-row">
