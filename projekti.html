@@ -643,7 +643,8 @@ function bufferDates(anchor) {
     authUrl.searchParams.set('scope', write
       ? 'User.Read Calendars.Read Calendars.ReadWrite offline_access'
       : 'User.Read Calendars.Read offline_access');
-    authUrl.searchParams.set('state', write ? participantId + '|rw' : participantId);
+       // Kolmas osa kertoo auth-callbackille että paluu tapahtuu tälle projektisivulle.
+    authUrl.searchParams.set('state', `${participantId}|${write ? 'rw' : ''}|p:${PROJECT_ID}`);
     window.location.href = authUrl.toString();
   }
 
@@ -980,6 +981,29 @@ function openGroupModal() {
 
   function closeModal() {
     document.getElementById('modalHost').innerHTML = '';
+  }
+
+    // Näyttää valtuutuksen tuloksen kun on palattu Microsoftin kirjautumisesta,
+  // ja siivoaa parametrit osoitteesta jottei viesti jää roikkumaan.
+  function showAuthReturnBanner() {
+    const status = paramsUrl.get('status');
+    if (!status) return;
+
+    const msgKey = status === 'ok' ? 'banner_auth_ok'
+      : status === 'denied' ? 'banner_auth_denied'
+      : status === 'email_mismatch' ? 'banner_email_mismatch'
+      : 'banner_auth_error';
+
+    const el = document.getElementById('inviteResult');
+    el.textContent = t(msgKey);
+    el.style.color = status === 'ok' ? '#1E6B3C' : '#C0453A';
+
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete('status');
+    clean.searchParams.delete('pid');
+    window.history.replaceState({}, '', clean.toString());
+
+    setTimeout(() => { el.textContent = ''; el.style.color = ''; }, 8000);
   }
 
   function openGroupDetail(groupId) {
@@ -1964,6 +1988,7 @@ function isoToDatetimeLocal(iso) {
       await loadMyProfileAndTranslations();
       await loadStatus();
       setHomeScroll();
+      showAuthReturnBanner();
     }
   })();
 </script>
