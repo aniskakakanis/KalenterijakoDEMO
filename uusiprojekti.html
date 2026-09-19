@@ -83,7 +83,12 @@
         <button type="button" class="remove" onclick="removeMemberRow(this)">✕</button>
       </div>
     </div>
-    <button class="add" type="button" onclick="addMemberRow()" data-i18n="add_member_btn"></button>
+        <button class="add" type="button" onclick="addMemberRow()" data-i18n="add_member_btn"></button>
+    <div style="margin-top:12px; display:flex; align-items:center; gap:6px; font-size:13px;">
+      <input type="checkbox" id="addMyselfCheckbox" />
+      <label for="addMyselfCheckbox" style="margin:0;" data-i18n="add_myself_checkbox_label"></label>
+    </div>
+  </div>
   </div>
 
   <button class="submit" id="submitBtn" onclick="createProject()" data-i18n="create_project_btn"></button>
@@ -103,6 +108,9 @@
 
   let currentAccessToken = null;
   let pendingResultData = null;
+  let myOwnEmail = null;
+  let myOwnFirstName = '';
+  let myOwnLastName = '';
 
   async function ensureLoggedIn() {
     const { data: { session } } = await client.auth.getSession();
@@ -111,7 +119,20 @@
       return false;
     }
     currentAccessToken = session.access_token;
+    myOwnEmail = session.user.email;
     return true;
+  }
+
+  async function loadMyProfileForCheckbox() {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/get-my-profile`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    const data = await res.json();
+    if (!data.error) {
+      myOwnFirstName = data.firstName || '';
+      myOwnLastName = data.lastName || '';
+    }
   }
 
   function authHeaders() {
@@ -173,7 +194,7 @@
       .map((el) => el.value.trim())
       .filter((v) => v !== '');
 
-    const members = Array.from(document.querySelectorAll('#memberRows .member-row')).map((row) => {
+     const members = Array.from(document.querySelectorAll('#memberRows .member-row')).map((row) => {
       const inputs = row.querySelectorAll('input');
       const select = row.querySelector('select');
       return {
@@ -184,6 +205,13 @@
         role: select.value,
       };
     }).filter((m) => m.email !== '');
+
+    if (document.getElementById('addMyselfCheckbox').checked) {
+      const alreadyListed = members.some((m) => m.email.toLowerCase() === myOwnEmail.toLowerCase());
+      if (!alreadyListed) {
+        members.push({ firstName: myOwnFirstName, lastName: myOwnLastName, title: '', email: myOwnEmail, role: 'admin' });
+      }
+    }
 
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
@@ -294,8 +322,9 @@
   }
 
   (async () => {
-    await ensureLoggedIn();
+    const ok = await ensureLoggedIn();
     applyStaticTranslations();
+    if (ok) loadMyProfileForCheckbox();
   })();
 </script>
 
