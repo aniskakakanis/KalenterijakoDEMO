@@ -157,6 +157,7 @@ const TRANSLATIONS = {
     login_btn: "Kirjaudu",
     divider_or: "tai",
     login_microsoft_btn: "Kirjaudu Microsoft-tilillä",
+    login_google_btn: "Kirjaudu Google-tilillä",
 
     // asiakkaat.html
     heading_clients: "Asiakkaat",
@@ -386,6 +387,7 @@ const TRANSLATIONS = {
     login_btn: "Log in",
     divider_or: "or",
     login_microsoft_btn: "Log in with Microsoft",
+    login_google_btn: "Log in with Google",
 
     heading_clients: "Clients",
     sub_clients: "Manage client organizations (superadmin only)",
