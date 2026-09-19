@@ -2165,51 +2165,7 @@ async function openSettingsModal() {
     renderSettingsModal();
   }
 
-    const blackoutsHtml = settingsState.blackouts.map((b, idx) => `
-      <div class="blackout-row">
-        <input type="datetime-local" value="${b.startAt}" onchange="updateBlackoutField(${idx}, 'startAt', this.value)" />
-        <span>–</span>
-        <input type="datetime-local" value="${b.endAt}" onchange="updateBlackoutField(${idx}, 'endAt', this.value)" />
-        <button type="button" class="remove-x" onclick="removeBlackout(${idx})">✕</button>
-      </div>
-    `).join('') || `<p class="empty-note">${t('no_blackouts')}</p>`;
-
-    document.getElementById('modalHost').innerHTML = `
-      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
-        <div class="modal settings-modal">
-          <h3>${t('modal_settings')}</h3>
-
-          ${viewPrefsSectionHtml()}
-
-          ${calendarSectionHtml()}
-
-          <label style="margin-top:0;">${t('show_calendar_to_others')}</label>
-          <p class="empty-note" style="margin-top:-2px;">${t('show_calendar_note')}</p>
-          ${daysHtml}
-
-          <label style="margin-top:16px;">${t('restrict_visibility_label')}</label>
-          <div id="blackoutsList">${blackoutsHtml}</div>
-          <button type="button" class="secondary" onclick="addBlackout()">${t('add_new_btn')}</button>
-
-          <label class="fully-hidden-row">
-            <input type="checkbox" ${settingsState.fullyHidden ? 'checked' : ''} onchange="settingsState.fullyHidden = this.checked" />
-            ${t('hide_calendar_fully')}
-          </label>
-
-          <div class="actions">
-            <button class="secondary" onclick="closeModal()">${t('cancel')}</button>
-            <button onclick="saveSettingsSubmit()">${t('save_btn')}</button>
-          </div>
-
-                ${writeAccessSectionHtml()}
-
-          <div class="danger-zone">
-            <button class="danger" type="button" onclick="leaveProjectConfirm()">${t('leave_project_btn')}</button>
-          </div>
-        </div>
-      </div>
-    `;
-  }
+    
 
   async function saveSettingsSubmit() {
     const windows = [];
