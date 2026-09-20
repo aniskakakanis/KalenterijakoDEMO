@@ -69,6 +69,8 @@
   .timeline-cell { position: relative; height: 24px; }
   .day-bg { position: absolute; top: 0; bottom: 0; background: #EEF1F4; border-radius: 6px; border: 1px solid #DBDFE5; box-sizing: border-box; z-index: 0; }
   .busy-block { position: absolute; top: 2px; bottom: 2px; background: #E8938A; border-radius: 3px; z-index: 2; }
+  .restricted-block { position: absolute; top: 2px; bottom: 2px; background: #4C6FA5; border-radius: 3px; z-index: 0; opacity: 0.55; }
+  
   .now-line { position: absolute; top: -20px; bottom: 0; width: 2px; background: #2A4B7C; z-index: 3; }
   .no-data { color: #8A93A3; font-size: 12.5px; }
 
@@ -519,6 +521,30 @@ function bufferDates(anchor) {
     return html;
   }
 
+    function restrictedBlocksHtml(ranges, anchor) {
+    const dates = bufferDates(anchor);
+    const winStart = HOURS_START * 60;
+    const winEnd = HOURS_END * 60;
+    let html = '';
+    (ranges || []).forEach((r) => {
+      const dateStr = itemDateStr({ start: { dateTime: r.start } });
+      const dayIdx = dates.indexOf(dateStr);
+      if (dayIdx === -1) return;
+      const start = new Date(r.start + 'Z');
+      const end = new Date(r.end + 'Z');
+      let startMin = start.getHours() * 60 + start.getMinutes();
+      let endMin = end.getHours() * 60 + end.getMinutes();
+      if (endMin <= startMin) endMin = 1440;
+      if (endMin <= winStart || startMin >= winEnd) return;
+      startMin = Math.max(startMin, winStart);
+      endMin = Math.min(endMin, winEnd);
+      const leftPx = dayIdx * DAY_VISIBLE_PX + (startMin - winStart) * PX_PER_MIN;
+      const widthPx = (endMin - startMin) * PX_PER_MIN;
+      html += `<div class="restricted-block" style="left:${leftPx}px; width:${widthPx}px;"></div>`;
+    });
+    return html;
+  }
+
   function nowLineHtml(anchor) {
     const dates = bufferDates(anchor);
     const todayIdx = dates.indexOf(todayDateStr());
@@ -801,9 +827,15 @@ async function loadStatus() {
         tRow.className = 'timeline-row clickable';
         tRow.style.width = totalWidthPx() + 'px';
         tRow.onclick = () => openParticipantDetail(p.id);
-        tRow.innerHTML = p.scheduleItems === null
-          ? `<div class="no-data">${t('no_schedule_fetched_yet')}</div>`
-          : timelineCellHtml(p.scheduleItems);
+           const isOwnRow = p.email.toLowerCase() === currentUserEmail;
+        if (p.scheduleItems === null) {
+          tRow.innerHTML = `<div class="no-data">${t('no_schedule_fetched_yet')}</div>`;
+        } else if (isOwnRow) {
+          const w = totalWidthPx();
+          tRow.innerHTML = `<div class="timeline-cell" style="width:${w}px;">${dayBackgroundsHtml()}${hourGridLinesHtml()}${restrictedBlocksHtml(p.ownRestrictedRanges)}${busyBlocksHtml(p.scheduleItems)}${nowLineHtml()}</div>`;
+        } else {
+          tRow.innerHTML = timelineCellHtml(p.scheduleItems);
+        }
         timelineCol.appendChild(tRow);
       });
     }
