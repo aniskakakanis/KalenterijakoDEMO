@@ -166,6 +166,9 @@
 
   .event-mini-board { border: 1px solid #DBDFE5; border-radius: 10px; padding: 12px 14px; margin-top: 6px; }
   .event-mini-names { width: 160px; flex: 0 0 160px; }
+    .sel-overlay { position: absolute; top: -3px; bottom: -3px; z-index: 4; border-radius: 4px; cursor: grab; }
+  .sel-overlay-free { background: rgba(30,107,60,0.35); border: 1px solid rgba(30,107,60,0.65); }
+  .sel-overlay-conflict { background: rgba(192,69,58,0.35); border: 1px solid rgba(192,69,58,0.65); }
 
   .lang-picker { margin-top: 14px; padding-top: 12px; border-top: 1px solid #EEF1F4; font-size: 12.5px; color: #586174; }
   .lang-btn { background: none; border: 1px solid #DBDFE5; color: #2A4B7C; padding: 4px 10px; font-size: 12px; margin: 6px 4px 0 0; border-radius: 999px; cursor: pointer; }
@@ -1274,7 +1277,7 @@ function openGroupModal() {
       </div>
     `;
   }
-function openCreateEventModal() {
+  function openCreateEventModal() {
     if (!latestStatus) return;
     eventModalState = {
       duration: (eventModalState && eventModalState.duration) || 30,
@@ -1287,9 +1290,9 @@ function openCreateEventModal() {
       preferAfternoon: eventModalState ? eventModalState.preferAfternoon : false,
       results: null,
       selectedResultIdx: 0,
-        inviteTitle: (eventModalState && eventModalState.inviteTitle) || '',
-      inviteBody: (eventModalState && eventModalState.inviteBody) || '',
       calAnchor: null,
+      selStart: null,
+      selEnd: null,
     };
     renderEventSelectionStep();
   }
@@ -1501,14 +1504,15 @@ function openCreateEventModal() {
       return;
     }
 
-     s.results = results;
+    s.results = results;
     s.selectedResultIdx = 0;
     s.selStart = results[0].startMs;
     s.selEnd = results[0].endMs;
     s.calAnchor = toDateStr(new Date(results[0].startMs));
     renderEventResultsStep();
   }
-function formatSlotLabel(slot) {
+
+  function formatSlotLabel(slot) {
     const start = new Date(slot.startMs);
     const end = new Date(slot.endMs);
     const wd = weekdayShortArr()[(start.getDay() + 6) % 7];
@@ -1528,6 +1532,164 @@ function formatSlotLabel(slot) {
       .map((id) => (latestStatus.groups || []).find((g) => g.id === id))
       .filter(Boolean);
     return { people, groups };
+  }
+
+  // ---- Valitun ajan raahaus/venytys-toiminnot ----
+
+  function pxForTimestamp(ms, anchor) {
+    const d = new Date(ms);
+    const dayIdx = bufferDates(anchor).indexOf(toDateStr(d));
+    if (dayIdx === -1) return null;
+    const minutes = d.getHours() * 60 + d.getMinutes();
+    return dayIdx * DAY_VISIBLE_PX + (minutes - HOURS_START * 60) * PX_PER_MIN;
+  }
+
+  function eventSelectionOverlayHtml(items) {
+    const s = eventModalState;
+    if (!s.selStart || !s.selEnd) return '';
+    const left = pxForTimestamp(s.selStart, s.calAnchor);
+    const right = pxForTimestamp(s.selEnd, s.calAnchor);
+    if (left === null || right === null) return '';
+    const conflict = (items || []).some((i) =>
+      i.status === 'busy' && overlapsMs(s.selStart, s.selEnd, new Date(i.start.dateTime + 'Z').getTime(), new Date(i.end.dateTime + 'Z').getTime())
+    );
+    return `<div class="sel-overlay ${conflict ? 'sel-overlay-conflict' : 'sel-overlay-free'}" style="left:${left}px; width:${right - left}px;"></div>`;
+  }
+
+  function formatDatetimeLocal(ms) {
+    const d = new Date(ms);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+      + 'T' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  function updateSelectedTimeFromInputs() {
+    const newStart = new Date(document.getElementById('selStartInput').value).getTime();
+    const newEnd = new Date(document.getElementById('selEndInput').value).getTime();
+    if (isNaN(newStart) || isNaN(newEnd) || newEnd <= newStart) return;
+    eventModalState.selStart = newStart;
+    eventModalState.selEnd = newEnd;
+    eventModalState.calAnchor = toDateStr(new Date(newStart));
+    renderEventResultsStep();
+  }
+
+  function timestampForClickX(xOffset, anchor) {
+    const dayIdx = Math.floor(xOffset / DAY_VISIBLE_PX);
+    const dates = bufferDates(anchor);
+    const dateStr = dates[dayIdx];
+    if (!dateStr) return null;
+    const withinDayPx = xOffset - dayIdx * DAY_VISIBLE_PX;
+    const minutesFromWindowStart = withinDayPx / PX_PER_MIN;
+    const totalMinutes = HOURS_START * 60 + minutesFromWindowStart;
+    const snappedMinutes = Math.round(totalMinutes / 15) * 15;
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setMinutes(snappedMinutes);
+    return d.getTime();
+  }
+
+  function onTimelineRowClick(e) {
+    if (e.target.closest('.sel-overlay')) return;
+    const cell = e.currentTarget.querySelector('.timeline-cell');
+    if (!cell) return;
+    const rect = cell.getBoundingClientRect();
+    const xOffset = e.clientX - rect.left;
+    const clicked = timestampForClickX(xOffset, eventModalState.calAnchor);
+    if (clicked === null) return;
+
+    const duration = eventModalState.selEnd - eventModalState.selStart;
+    eventModalState.selStart = clicked;
+    eventModalState.selEnd = clicked + duration;
+    eventModalState.calAnchor = toDateStr(new Date(eventModalState.selStart));
+    renderEventResultsStep();
+  }
+
+  // Suoraan DOM:iin kohdistuva, kevyt päivitys raahauksen AIKANA — ei
+  // koko modaalin uudelleenpiirtoa, jotta liike pysyy sulavana. Rajattu
+  // tarkoituksella vain #modalHostin sisälle, ei koko dokumenttiin.
+  function updateSelectionOverlaysInPlace() {
+    const s = eventModalState;
+    const left = pxForTimestamp(s.selStart, s.calAnchor);
+    const right = pxForTimestamp(s.selEnd, s.calAnchor);
+    if (left === null || right === null) return;
+
+    document.querySelectorAll('#modalHost .sel-overlay').forEach((el) => {
+      el.style.left = left + 'px';
+      el.style.width = (right - left) + 'px';
+    });
+  }
+
+  function updateSelectedTimeInputsInPlace() {
+    const startInput = document.getElementById('selStartInput');
+    const endInput = document.getElementById('selEndInput');
+    if (startInput) startInput.value = formatDatetimeLocal(eventModalState.selStart);
+    if (endInput) endInput.value = formatDatetimeLocal(eventModalState.selEnd);
+  }
+
+  function attachSelectionDrag() {
+    document.querySelectorAll('.sel-overlay').forEach((el) => {
+      el.addEventListener('click', (e) => e.stopPropagation());
+
+      el.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        const rect = el.getBoundingClientRect();
+        const leftEdge = e.clientX - rect.left < 10;
+        const rightEdge = rect.right - e.clientX < 10;
+        e.preventDefault();
+
+        const startX = e.clientX;
+        const originalStart = eventModalState.selStart;
+        const originalEnd = eventModalState.selEnd;
+        const duration = originalEnd - originalStart;
+
+        function snap(ms) {
+          return Math.round(ms / (15 * 60000)) * (15 * 60000);
+        }
+
+        function onMove(ev) {
+          const deltaMs = ((ev.clientX - startX) / PX_PER_MIN) * 60000;
+
+          if (rightEdge) {
+            let newEnd = snap(originalEnd + deltaMs);
+            if (newEnd <= eventModalState.selStart + 15 * 60000) newEnd = eventModalState.selStart + 15 * 60000;
+            eventModalState.selEnd = newEnd;
+          } else if (leftEdge) {
+            let newStart = snap(originalStart + deltaMs);
+            if (newStart >= eventModalState.selEnd - 15 * 60000) newStart = eventModalState.selEnd - 15 * 60000;
+            eventModalState.selStart = newStart;
+          } else {
+            const newStart = snap(originalStart + deltaMs);
+            eventModalState.selStart = newStart;
+            eventModalState.selEnd = newStart + duration;
+          }
+
+          const newAnchor = toDateStr(new Date(eventModalState.selStart));
+          if (newAnchor !== eventModalState.calAnchor) {
+            eventModalState.calAnchor = newAnchor;
+          }
+
+          updateSelectionOverlaysInPlace();
+          updateSelectedTimeInputsInPlace();
+        }
+
+        function onUp() {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          eventModalState.calAnchor = toDateStr(new Date(eventModalState.selStart));
+          renderEventResultsStep();
+        }
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+
+      el.addEventListener('mousemove', (e) => {
+        const rect = el.getBoundingClientRect();
+        if (rect.right - e.clientX < 10 || e.clientX - rect.left < 10) {
+          el.style.cursor = 'ew-resize';
+        } else {
+          el.style.cursor = 'grab';
+        }
+      });
+    });
   }
 
   function renderEventResultsStep() {
@@ -1552,18 +1714,18 @@ function formatSlotLabel(slot) {
           <div class="who-text"><span class="name">${nameLabelFor(p)}</span></div>
         </div>
       `;
-                 timelineHtml += `<div class="timeline-row" onclick="onTimelineRowClick(event)" style="width:${totalWidthPx()}px;">${timelineCellHtml(p.scheduleItems, s.calAnchor)}${eventSelectionOverlayHtml(p.scheduleItems)}</div>`;
+      timelineHtml += `<div class="timeline-row" onclick="onTimelineRowClick(event)" style="width:${totalWidthPx()}px;">${timelineCellHtml(p.scheduleItems, s.calAnchor)}${eventSelectionOverlayHtml(p.scheduleItems)}</div>`;
     });
 
     groups.forEach((g) => {
+      const gItems = groupMergedItems(g);
       namesHtml += `
         <div class="name-row">
           ${groupAvatarHtml()}
           <div class="who-text"><span class="name">${g.name}</span></div>
         </div>
       `;
-            const gItems = groupMergedItems(g);
-          timelineHtml += `<div class="timeline-row" onclick="onTimelineRowClick(event)" style="width:${totalWidthPx()}px;">${timelineCellHtml(gItems, s.calAnchor)}${eventSelectionOverlayHtml(gItems)}</div>`;
+      timelineHtml += `<div class="timeline-row" onclick="onTimelineRowClick(event)" style="width:${totalWidthPx()}px;">${timelineCellHtml(gItems, s.calAnchor)}${eventSelectionOverlayHtml(gItems)}</div>`;
     });
 
     document.getElementById('modalHost').innerHTML = `
@@ -1573,7 +1735,8 @@ function formatSlotLabel(slot) {
           <button class="secondary" onclick="renderEventSelectionStep()">${t('add_more_people_groups')}</button>
 
           <div class="slot-list">${slotRows}</div>
-                    <label>${t('selected_time_label')}</label>
+
+          <label>${t('selected_time_label')}</label>
           <div class="event-range-row">
             <input type="datetime-local" id="selStartInput" value="${formatDatetimeLocal(s.selStart)}" onchange="updateSelectedTimeFromInputs()" />
             <span>–</span>
@@ -1590,9 +1753,8 @@ function formatSlotLabel(slot) {
             </div>
           </div>
 
-                  <div class="actions">
+          <div class="actions">
             <button class="secondary" onclick="closeModal()">${t('close')}</button>
-            <button onclick="openInviteConfirmStep()">${t('create_invite_btn')}</button>
           </div>
         </div>
       </div>
