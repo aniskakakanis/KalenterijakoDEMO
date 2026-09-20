@@ -71,6 +71,7 @@ const TRANSLATIONS = {
     remove_participant_btn: "Poista",
     confirm_remove_participant: "Poistetaanko {{name}} projektista?",
     project_name_saved: "Projektin nimi tallennettu.",
+        legend_restricted: "Rajattu näkyvyys (vain sinulle)",
     
 
     // ryhmämodaalit
@@ -342,6 +343,7 @@ const TRANSLATIONS = {
     add_myself_btn: "Add me to the project",
     contact_admin_note: "Contact the project admin if you'd like to add members",
         add_myself_checkbox_label: "Add yourself as a project member",
+        legend_restricted: "Restricted visibility (visible only to you)",
 
     modal_new_group: "New group",
     group_name_label: "Group name",
