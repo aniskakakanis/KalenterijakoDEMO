@@ -1552,7 +1552,7 @@ function formatSlotLabel(slot) {
           <div class="who-text"><span class="name">${nameLabelFor(p)}</span></div>
         </div>
       `;
-           timelineHtml += `<div class="timeline-row" style="width:${totalWidthPx()}px;">${timelineCellHtml(p.scheduleItems, s.calAnchor)}${eventSelectionOverlayHtml(p.scheduleItems)}</div>`;
+                 timelineHtml += `<div class="timeline-row" onclick="onTimelineRowClick(event)" style="width:${totalWidthPx()}px;">${timelineCellHtml(p.scheduleItems, s.calAnchor)}${eventSelectionOverlayHtml(p.scheduleItems)}</div>`;
     });
 
     groups.forEach((g) => {
@@ -1563,7 +1563,7 @@ function formatSlotLabel(slot) {
         </div>
       `;
             const gItems = groupMergedItems(g);
-      timelineHtml += `<div class="timeline-row" style="width:${totalWidthPx()}px;">${timelineCellHtml(gItems, s.calAnchor)}${eventSelectionOverlayHtml(gItems)}</div>`;
+          timelineHtml += `<div class="timeline-row" onclick="onTimelineRowClick(event)" style="width:${totalWidthPx()}px;">${timelineCellHtml(gItems, s.calAnchor)}${eventSelectionOverlayHtml(gItems)}</div>`;
     });
 
     document.getElementById('modalHost').innerHTML = `
@@ -1672,11 +1672,45 @@ function formatSlotLabel(slot) {
     renderEventResultsStep();
   }
 
-    function attachSelectionDrag() {
+     function timestampForClickX(xOffset, anchor) {
+    const dayIdx = Math.floor(xOffset / DAY_VISIBLE_PX);
+    const dates = bufferDates(anchor);
+    const dateStr = dates[dayIdx];
+    if (!dateStr) return null;
+    const withinDayPx = xOffset - dayIdx * DAY_VISIBLE_PX;
+    const minutesFromWindowStart = withinDayPx / PX_PER_MIN;
+    const totalMinutes = HOURS_START * 60 + minutesFromWindowStart;
+    const snappedMinutes = Math.round(totalMinutes / 15) * 15;
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setMinutes(snappedMinutes);
+    return d.getTime();
+  }
+
+  function onTimelineRowClick(e) {
+    if (e.target.closest('.sel-overlay')) return;
+    const cell = e.currentTarget.querySelector('.timeline-cell');
+    if (!cell) return;
+    const rect = cell.getBoundingClientRect();
+    const xOffset = e.clientX - rect.left;
+    const clicked = timestampForClickX(xOffset, eventModalState.calAnchor);
+    if (clicked === null) return;
+
+    const duration = eventModalState.selEnd - eventModalState.selStart;
+    eventModalState.selStart = clicked;
+    eventModalState.selEnd = clicked + duration;
+    eventModalState.calAnchor = toDateStr(new Date(eventModalState.selStart));
+    renderEventResultsStep();
+  }
+
+  function attachSelectionDrag() {
     document.querySelectorAll('.sel-overlay').forEach((el) => {
+      el.addEventListener('click', (e) => e.stopPropagation());
+
       el.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
         const rect = el.getBoundingClientRect();
-        const isResizeHandle = rect.right - e.clientX < 10;
+        const leftEdge = e.clientX - rect.left < 10;
+        const rightEdge = rect.right - e.clientX < 10;
         e.preventDefault();
 
         const startX = e.clientX;
@@ -1691,10 +1725,14 @@ function formatSlotLabel(slot) {
         function onMove(ev) {
           const deltaMs = ((ev.clientX - startX) / PX_PER_MIN) * 60000;
 
-          if (isResizeHandle) {
+          if (rightEdge) {
             let newEnd = snap(originalEnd + deltaMs);
             if (newEnd <= eventModalState.selStart + 15 * 60000) newEnd = eventModalState.selStart + 15 * 60000;
             eventModalState.selEnd = newEnd;
+          } else if (leftEdge) {
+            let newStart = snap(originalStart + deltaMs);
+            if (newStart >= eventModalState.selEnd - 15 * 60000) newStart = eventModalState.selEnd - 15 * 60000;
+            eventModalState.selStart = newStart;
           } else {
             const newStart = snap(originalStart + deltaMs);
             eventModalState.selStart = newStart;
@@ -1718,23 +1756,12 @@ function formatSlotLabel(slot) {
 
       el.addEventListener('mousemove', (e) => {
         const rect = el.getBoundingClientRect();
-        el.style.cursor = (rect.right - e.clientX < 10) ? 'ew-resize' : 'grab';
+        if (rect.right - e.clientX < 10 || e.clientX - rect.left < 10) {
+          el.style.cursor = 'ew-resize';
+        } else {
+          el.style.cursor = 'grab';
+        }
       });
-    });
-  }
-
-  // Päivittää sinisen/vihreän/punaisen laatikon suoraan DOM:iin raahauksen
-  // aikana ilman koko modaalin uudelleenpiirtoa — pitää raahauksen sulavana.
-  function updateSelectionOverlaysInPlace() {
-    const s = eventModalState;
-    document.querySelectorAll('.timeline-row').forEach((row) => {
-      const old = row.querySelector('.sel-overlay');
-      if (!old) return;
-      const left = pxForTimestamp(s.selStart, s.calAnchor);
-      const right = pxForTimestamp(s.selEnd, s.calAnchor);
-      if (left === null || right === null) return;
-      old.style.left = left + 'px';
-      old.style.width = (right - left) + 'px';
     });
   }
 
