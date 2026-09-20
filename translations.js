@@ -72,7 +72,7 @@ const TRANSLATIONS = {
     confirm_remove_participant: "Poistetaanko {{name}} projektista?",
     project_name_saved: "Projektin nimi tallennettu.",
         legend_restricted: "Rajattu näkyvyys (vain sinulle)",
-    
+    selected_time_label: "Valittu aika",
 
     // ryhmämodaalit
     modal_new_group: "Uusi ryhmä",
@@ -428,6 +428,7 @@ const TRANSLATIONS = {
     teams_link_label: "Teams link",
     open_in_calendar: "Open in calendar",
     invite_send_failed: "Sending the invitation failed",
+    selected_time_label: "Selected time",
 
     modal_settings: "Settings",
     view_settings_label: "View settings",
