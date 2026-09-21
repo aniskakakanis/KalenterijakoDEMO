@@ -999,42 +999,7 @@ async function loadStatus() {
     closeModal();
     loadStatus();
   }
-  async function submitParticipantInvite(email, firstName, lastName, title, role) {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/invite-participant`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({ projectId: PROJECT_ID, email, firstName, lastName, title, role }),
-    });
-    const data = await res.json();
 
-    if (data.error) {
-      alert(t('error_prefix') + ': ' + data.error);
-      return;
-    }
-
-    closeModal();
-    document.getElementById('inviteResult').innerHTML =
-      t('invite_link_label') + ': <a href="' + data.inviteLink + '" target="_blank">' + data.inviteLink + '</a>';
-
-    loadStatus();
-  }
-
-  function submitAddParticipant() {
-    const email = document.getElementById('npEmail').value.trim();
-    if (!email) { alert(t('error_prefix') + ': ' + t('col_email')); return; }
-
-    submitParticipantInvite(
-      email,
-      document.getElementById('npFirstName').value,
-      document.getElementById('npLastName').value,
-      document.getElementById('npTitle').value,
-      document.getElementById('npRole').value
-    );
-  }
-
-  function addMyselfToProject() {
-    submitParticipantInvite(currentUserEmail, '', '', '', 'admin');
-  }
 
   async function refreshSchedules() {
     const statusRes = await fetch(`${SUPABASE_URL}/functions/v1/get-project-status`, {
