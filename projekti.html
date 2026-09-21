@@ -1719,6 +1719,7 @@ function openGroupModal() {
 
           <div class="actions">
             <button class="secondary" onclick="closeModal()">${t('close')}</button>
+            <button onclick="openInviteConfirmStep()">${t('create_invite_btn')}</button>
           </div>
         </div>
       </div>
@@ -2250,6 +2251,7 @@ async function openSettingsModal() {
     return `
       ${viewPrefsSectionHtml()}
       ${calendarSectionHtml()}
+      ${writeAccessSectionHtml()}
 
       <label style="margin-top:0;">${t('show_calendar_to_others')}</label>
       <p class="empty-note" style="margin-top:-2px;">${t('show_calendar_note')}</p>
