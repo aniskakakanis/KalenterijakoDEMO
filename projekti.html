@@ -471,7 +471,10 @@ function bufferDates(anchor) {
       const d = new Date(dateStr + 'T00:00:00');
       const label = wdShort[(d.getDay() + 6) % 7] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '.';
       html += `<div class="day-label" style="left:${i * DAY_VISIBLE_PX}px; width:${DAY_VISIBLE_PX}px;">${label}</div>`;
-      for (let h = HOURS_START; h <= HOURS_END; h++) {
+      // Päivän loppuotsikko osuu samaan kohtaan kuin seuraavan päivän alkuotsikko,
+      // joten se piirretään vain viimeiselle päivälle.
+      const lastHour = i === dates.length - 1 ? HOURS_END : HOURS_END - 1;
+      for (let h = HOURS_START; h <= lastHour; h++) {
         const x = i * DAY_VISIBLE_PX + (h - HOURS_START) * HOUR_PX;
         html += `<div class="hour-label" style="left:${x}px;">${h}</div>`;
       }
@@ -677,7 +680,7 @@ function bufferDates(anchor) {
       authUrl.searchParams.set('scope', 'https://www.googleapis.com/auth/calendar.readonly');
       authUrl.searchParams.set('access_type', 'offline');
       authUrl.searchParams.set('prompt', 'consent');
-      authUrl.searchParams.set('state', participantId);
+      authUrl.searchParams.set('state', `${participantId}||p:${PROJECT_ID}`);
       window.location.href = authUrl.toString();
       return;
     }
@@ -2354,8 +2357,13 @@ async function openSettingsModal() {
       });
     }
 
-    const blackouts = settingsState.blackouts
-      .filter((b) => b.startAt && b.endAt)
+    const filledBlackouts = settingsState.blackouts.filter((b) => b.startAt && b.endAt);
+    // datetime-local-arvot (YYYY-MM-DDTHH:MM) ovat merkkijonoina aikajärjestyksessä.
+    if (filledBlackouts.some((b) => b.endAt <= b.startAt)) {
+      alert(t('blackout_end_before_start'));
+      return;
+    }
+    const blackouts = filledBlackouts
       .map((b) => ({ startAt: datetimeLocalToIso(b.startAt), endAt: datetimeLocalToIso(b.endAt) }));
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/update-participant-settings`, {

@@ -32,6 +32,10 @@
   .status-pending { color: #91600C; font-size: 12px; }
 
   .empty-note { color: #8A93A3; font-size: 13px; }
+
+  .banner { padding: 10px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; }
+  .banner.ok { background: #DCF3E4; color: #1E6B3C; }
+  .banner.error { background: #FBE4E1; color: #9C2C22; }
 </style>
 </head>
 <body>
@@ -42,6 +46,7 @@
 <div class="card" id="profileCard" data-i18n="loading"></div>
 
 <h3 data-i18n="heading_calendar_by_project"></h3>
+<div id="authReturnBanner"></div>
 <div class="card" id="projectsCard" data-i18n="loading"></div>
 
 <script src="/translations.js"></script>
@@ -172,9 +177,9 @@
       if (p.status === 'authorized') {
         actionHtml = `<button class="danger" onclick="revokeAuth('${p.projectId}')">${t('revoke_auth_btn')}</button>`;
       } else if (p.status === 'expired') {
-        actionHtml = `<button class="small" onclick="startAuth('${p.participantId}')">${t('retry_auth_btn')}</button>`;
+        actionHtml = `<button class="small" onclick="startAuth('${p.participantId}', ${!!p.calendarWrite})">${t('retry_auth_btn')}</button>`;
       } else {
-        actionHtml = `<button class="small" onclick="startAuth('${p.participantId}')">${t('grant_auth_short')}</button>`;
+        actionHtml = `<button class="small" onclick="startAuth('${p.participantId}', ${!!p.calendarWrite})">${t('grant_auth_short')}</button>`;
       }
 
       return `
@@ -192,7 +197,9 @@
   const GOOGLE_CLIENT_ID = "1023786751364-dbpmrjj0k1fggbfbb88r7p167o6bt84h.apps.googleusercontent.com";
   const GOOGLE_CALENDAR_REDIRECT_URI = "https://nrrhvbxvkizvkcwwglck.supabase.co/functions/v1/google-auth-callback";
 
-  async function startAuth(participantId) {
+  // Paluukohde "me" ohjaa valtuutuksen jälkeen takaisin tälle sivulle
+  // (ks. supabase/functions/_shared/auth-return.ts).
+  async function startAuth(participantId, wantsWrite) {
     const { data: { session } } = await client.auth.getSession();
     const provider = session?.user?.app_metadata?.provider;
 
@@ -204,18 +211,24 @@
       authUrl.searchParams.set('scope', 'https://www.googleapis.com/auth/calendar.readonly');
       authUrl.searchParams.set('access_type', 'offline');
       authUrl.searchParams.set('prompt', 'consent');
-      authUrl.searchParams.set('state', participantId);
+      authUrl.searchParams.set('state', `${participantId}||me`);
       window.location.href = authUrl.toString();
       return;
     }
+
+    // Jos kirjoitusoikeus on jo annettu, säilytetään se uudelleenvaltuutuksessa —
+    // muuten oikeus katoaisi hiljaisesti.
+    const write = !!wantsWrite;
 
     const authUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
     authUrl.searchParams.set('client_id', CLIENT_ID);
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('redirect_uri', CALENDAR_REDIRECT_URI);
     authUrl.searchParams.set('response_mode', 'query');
-    authUrl.searchParams.set('scope', 'User.Read Calendars.Read offline_access');
-    authUrl.searchParams.set('state', participantId);
+    authUrl.searchParams.set('scope', write
+      ? 'User.Read Calendars.Read Calendars.ReadWrite offline_access'
+      : 'User.Read Calendars.Read offline_access');
+    authUrl.searchParams.set('state', `${participantId}|${write ? 'rw' : ''}|me`);
     window.location.href = authUrl.toString();
   }
 
@@ -233,10 +246,32 @@
     loadProjects();
   }
 
+  // Näyttää valtuutuksen tuloksen kun on palattu kirjautumisesta,
+  // ja siivoaa parametrit osoitteesta jottei viesti jää roikkumaan.
+  function showAuthReturnBanner() {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('status');
+    if (!status) return;
+
+    const msgKey = status === 'ok' ? 'banner_auth_ok'
+      : status === 'denied' ? 'banner_auth_denied'
+      : status === 'email_mismatch' ? 'banner_email_mismatch'
+      : 'banner_auth_error';
+
+    document.getElementById('authReturnBanner').innerHTML =
+      `<div class="banner ${status === 'ok' ? 'ok' : 'error'}">${t(msgKey)}</div>`;
+
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete('status');
+    clean.searchParams.delete('pid');
+    window.history.replaceState({}, '', clean.toString());
+  }
+
   (async () => {
     const ok = await ensureLoggedIn();
     if (ok) {
-      loadProfile();
+      await loadProfile();
+      showAuthReturnBanner();
     }
   })();
 </script>

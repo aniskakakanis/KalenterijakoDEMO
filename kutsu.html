@@ -380,8 +380,13 @@
         if (r.start && r.end) windows.push({ weekday: d, startTime: r.start + ':00', endTime: r.end + ':00' });
       });
     }
-    const blackouts = settingsState.blackouts
-      .filter((b) => b.startAt && b.endAt)
+    const filledBlackouts = settingsState.blackouts.filter((b) => b.startAt && b.endAt);
+    // datetime-local-arvot (YYYY-MM-DDTHH:MM) ovat merkkijonoina aikajärjestyksessä.
+    if (filledBlackouts.some((b) => b.endAt <= b.startAt)) {
+      alert(t('blackout_end_before_start'));
+      return false;
+    }
+    const blackouts = filledBlackouts
       .map((b) => ({ startAt: b.startAt + ':00.000Z', endAt: b.endAt + ':00.000Z' }));
 
     await fetch(`${SUPABASE_URL}/functions/v1/update-participant-settings`, {
@@ -389,11 +394,13 @@
       headers: authHeaders(),
       body: JSON.stringify({ projectId: inviteInfo.projectId, fullyHidden: settingsState.fullyHidden, windows, blackouts }),
     });
+    return true;
   }
 
   async function joinProject() {
     if (settingsState) {
-      await saveSettingsInline();
+      const saved = await saveSettingsInline();
+      if (!saved) return;
     }
     window.location.href = `/projekti.html?id=${inviteInfo.projectId}`;
   }
