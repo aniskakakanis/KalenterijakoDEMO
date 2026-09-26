@@ -151,6 +151,34 @@
 
   
   .event-range-row { display: flex; align-items: center; gap: 8px; }
+  .event-mode-tabs { margin: 18px 0 4px; }
+  .rec-layout { display: grid; grid-template-columns: 1fr 3fr; gap: 16px; margin-top: 8px; }
+  .rec-freq-list { display: flex; flex-direction: column; gap: 4px; border-right: 1px solid #EEF1F4; padding-right: 12px; }
+  .rec-freq-btn { text-align: left; background: none; color: #161B22; border: none; padding: 8px 10px; border-radius: 7px; font-size: 13.5px; margin: 0; cursor: pointer; }
+  .rec-freq-btn:hover { background: #F3F5F8; }
+  .rec-freq-btn.active { background: #E1E6EF; color: #2A4B7C; font-weight: 600; }
+  .rec-panel .modal-label-top { margin-top: 0; }
+  .rec-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: #161B22; }
+  .rec-inline label { display: flex; align-items: center; gap: 6px; margin: 0; color: #161B22; }
+  .rec-panel select, .rec-panel input[type=number], .rec-panel input[type=date] { padding: 6px 7px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 13px; }
+  .rec-panel input[type=number] { width: 60px; }
+  .rec-end-rows { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+  .rec-smart { margin-top: 16px; padding: 10px 12px; background: #F6F8FA; border: 1px solid #EEF1F4; border-radius: 8px; }
+  .rec-smart label { display: flex; align-items: center; gap: 6px; margin: 0; color: #161B22; font-weight: 600; font-size: 13px; }
+  .rec-smart p { margin: 4px 0 0 22px; font-size: 12px; color: #586174; }
+  .rec-hint { font-size: 12.5px; color: #586174; margin: 4px 0 10px; }
+  .occ-list { border: 1px solid #DBDFE5; border-radius: 10px; margin-top: 10px; }
+  .occ-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid #EEF1F4; font-size: 13px; }
+  .occ-row:first-child { border-top: none; }
+  .occ-row .occ-idx { color: #8A93A3; width: 22px; }
+  .occ-row .occ-label { flex: 1; min-width: 0; }
+  .occ-row input[type=datetime-local] { padding: 5px; border: 1px solid #DBDFE5; border-radius: 6px; font-size: 12.5px; }
+  .occ-row .remove-x { color: #C0453A; background: none; border: none; cursor: pointer; padding: 0 4px; margin: 0; }
+  .occ-badge { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; white-space: nowrap; min-width: 104px; text-align: center; box-sizing: border-box; }
+  .occ-free { background: #DCF3E4; color: #1E6B3C; }
+  .occ-moved { background: #E1E6EF; color: #2A4B7C; }
+  .occ-conflict { background: #FBE4E1; color: #9C2C22; }
+  .occ-nodata { background: #EEF1F4; color: #586174; }
   .event-range-row input[type=datetime-local] { flex: 1; padding: 7px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 12.5px; }
   .pref-row { display: flex; gap: 14px; font-size: 13px; margin-top: 6px; flex-wrap: wrap; }
   .pref-row label { display: flex; align-items: center; gap: 5px; margin: 0; color: #161B22; }
@@ -258,6 +286,7 @@
 <div id="modalHost"></div>
 
 <script src="/translations.js"></script>
+<script src="/recurrence.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const paramsUrl = new URLSearchParams(window.location.search);
@@ -1255,6 +1284,11 @@ function openGroupModal() {
       preferMorning: eventModalState ? eventModalState.preferMorning : false,
       preferMidday: eventModalState ? eventModalState.preferMidday : false,
       preferAfternoon: eventModalState ? eventModalState.preferAfternoon : false,
+      mode: (eventModalState && eventModalState.mode) || 'single',
+      rec: (eventModalState && eventModalState.rec) || defaultRecurrenceState(),
+      recRule: null,
+      recCtx: null,
+      occurrences: null,
       results: null,
       selectedResultIdx: 0,
       calAnchor: null,
@@ -1262,6 +1296,119 @@ function openGroupModal() {
       selEnd: null,
     };
     renderEventSelectionStep();
+  }
+
+  function defaultRecurrenceState() {
+    const next = new Date();
+    next.setMonth(next.getMonth() + 1);
+    return {
+      freq: 'weekly',
+      weekday: 0,
+      nth: 1,
+      month: next.getMonth() + 1,
+      window: 'morning',
+      startFrom: todayDateStr(),
+      endType: 'count',
+      count: 6,
+      endDate: '',
+      smart: false,
+    };
+  }
+
+  function setEventMode(mode) {
+    eventModalState.mode = mode;
+    renderEventSelectionStep();
+  }
+
+  function setRecFreq(freq) {
+    eventModalState.rec.freq = freq;
+    renderEventSelectionStep();
+  }
+
+  function setRecField(field, value) {
+    eventModalState.rec[field] = value;
+  }
+
+  function capitalize(str) {
+    return str ? str.charAt(0).toUpperCase() + str.slice(1) : str;
+  }
+
+  function recurrencePanelHtml() {
+    const r = eventModalState.rec;
+    const freqs = ['daily', 'weekly', 'monthly', 'yearly'];
+    const freqList = freqs.map((f) => `
+      <button type="button" class="rec-freq-btn ${r.freq === f ? 'active' : ''}" onclick="setRecFreq('${f}')">${t('rec_freq_' + f)}</button>
+    `).join('');
+
+    const weekdaySelect = `
+      <select onchange="setRecField('weekday', Number(this.value))">
+        ${weekdayFullArr().map((name, i) => `<option value="${i}" ${r.weekday === i ? 'selected' : ''}>${capitalize(name)}</option>`).join('')}
+      </select>`;
+    const nthSelect = `
+      <select onchange="setRecField('nth', Number(this.value))">
+        ${[1, 2, 3, 4].map((n) => `<option value="${n}" ${r.nth === n ? 'selected' : ''}>${t('rec_nth_' + n)}</option>`).join('')}
+      </select>`;
+    const monthSelect = `
+      <select onchange="setRecField('month', Number(this.value))">
+        ${Array.from({ length: 12 }, (_, i) => i + 1).map((m) => `<option value="${m}" ${r.month === m ? 'selected' : ''}>${t('rec_month_nom_' + m)}</option>`).join('')}
+      </select>`;
+
+    let ruleHtml = '';
+    if (r.freq === 'daily') {
+      ruleHtml = `<p class="rec-hint" style="margin-top:0;">${t('rec_daily_hint')}</p>`;
+    } else if (r.freq === 'weekly') {
+      ruleHtml = `
+        <label class="modal-label-top">${t('rec_weekday_label')}</label>
+        <div class="rec-inline">${weekdaySelect}</div>`;
+    } else {
+      ruleHtml = `
+        ${r.freq === 'yearly' ? `
+          <label class="modal-label-top">${t('rec_month_label')}</label>
+          <div class="rec-inline">${monthSelect}</div>` : ''}
+        <label class="${r.freq === 'yearly' ? '' : 'modal-label-top'}">${t('rec_nth_label')}</label>
+        <div class="rec-inline">${nthSelect}${weekdaySelect}</div>`;
+    }
+
+    const windowRadios = Object.keys(RECURRENCE_TIME_WINDOWS).map((w) => `
+      <label><input type="radio" name="recWindow" value="${w}" ${r.window === w ? 'checked' : ''} onchange="setRecField('window', '${w}')" /> ${t('prefer_' + w)}</label>
+    `).join('');
+
+    return `
+      <div class="rec-layout">
+        <div class="rec-freq-list">${freqList}</div>
+        <div class="rec-panel">
+          ${ruleHtml}
+
+          <label>${t('rec_time_of_day_label')}</label>
+          <div class="pref-row">${windowRadios}</div>
+
+          <label>${t('rec_start_from_label')}</label>
+          <div class="rec-inline">
+            <input type="date" value="${r.startFrom}" onchange="setRecField('startFrom', this.value)" />
+          </div>
+
+          <label>${t('rec_end_label')}</label>
+          <div class="rec-end-rows rec-inline">
+            <label>
+              <input type="radio" name="recEnd" ${r.endType === 'count' ? 'checked' : ''} onchange="setRecField('endType', 'count')" />
+              ${t('rec_end_count_pre')}
+              <input type="number" min="2" max="${RECURRENCE_MAX_OCCURRENCES}" value="${r.count}" oninput="setRecField('count', this.value)" />
+              ${t('rec_end_count_post')}
+            </label>
+            <label>
+              <input type="radio" name="recEnd" ${r.endType === 'date' ? 'checked' : ''} onchange="setRecField('endType', 'date')" />
+              ${t('rec_end_date')}
+              <input type="date" value="${r.endDate}" onchange="setRecField('endDate', this.value)" />
+            </label>
+          </div>
+
+          <div class="rec-smart">
+            <label><input type="checkbox" ${r.smart ? 'checked' : ''} onchange="setRecField('smart', this.checked)" /> ${t('rec_smart_label')}</label>
+            <p>${t('rec_smart_explain')}</p>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   function setEventDuration(val) {
@@ -1330,6 +1477,12 @@ function openGroupModal() {
             </div>
           </div>
 
+          <div class="settings-tabs event-mode-tabs">
+            <button type="button" class="settings-tab-btn ${s.mode === 'single' ? 'active' : ''}" onclick="setEventMode('single')">${t('event_tab_single')}</button>
+            <button type="button" class="settings-tab-btn ${s.mode === 'recurring' ? 'active' : ''}" onclick="setEventMode('recurring')">${t('event_tab_recurring')}</button>
+          </div>
+
+          ${s.mode === 'recurring' ? recurrencePanelHtml() : `
           <label>${t('schedule_between_label')}</label>
           <div class="event-range-row">
             <input type="datetime-local" value="${s.rangeFrom}" oninput="eventModalState.rangeFrom = this.value" />
@@ -1343,10 +1496,11 @@ function openGroupModal() {
             <label><input type="checkbox" ${s.preferMidday ? 'checked' : ''} onchange="eventModalState.preferMidday=this.checked" /> ${t('prefer_midday')}</label>
             <label><input type="checkbox" ${s.preferAfternoon ? 'checked' : ''} onchange="eventModalState.preferAfternoon=this.checked" /> ${t('prefer_afternoon')}</label>
           </div>
+          `}
 
           <div class="actions">
             <button class="secondary" onclick="closeModal()">${t('cancel')}</button>
-            <button onclick="searchEventSlots()">${t('search_times')}</button>
+            <button onclick="${s.mode === 'recurring' ? 'searchRecurringFirstSlot()' : 'searchEventSlots()'}">${t('search_times')}</button>
           </div>
         </div>
       </div>
@@ -1426,7 +1580,9 @@ function openGroupModal() {
     return chosen;
   }
 
-  function searchEventSlots() {
+  // Pakollisten ja valinnaisten osallistujien varatut ajat valinnoista.
+  // Palauttaa null (ja näyttää ilmoituksen), jos ketään ei ole valittu.
+  function collectEventBusy() {
     const s = eventModalState;
     const requiredIds = { people: [], groups: [] };
     const optionalIds = { people: [], groups: [] };
@@ -1436,7 +1592,7 @@ function openGroupModal() {
 
     if (requiredIds.people.length + requiredIds.groups.length + optionalIds.people.length + optionalIds.groups.length === 0) {
       alert(t('alert_select_attendee'));
-      return;
+      return null;
     }
 
     const requiredBusy = [
@@ -1447,6 +1603,14 @@ function openGroupModal() {
       ...optionalIds.people.map(resolvePersonBusy),
       ...optionalIds.groups.map(resolveGroupBusy),
     ];
+    return { requiredBusy, optionalBusyLists };
+  }
+
+  function searchEventSlots() {
+    const s = eventModalState;
+    const busy = collectEventBusy();
+    if (!busy) return;
+    const { requiredBusy, optionalBusyLists } = busy;
 
     const now = new Date();
     const searchStart = s.rangeFrom ? new Date(s.rangeFrom) : now;
@@ -1479,6 +1643,209 @@ function openGroupModal() {
     renderEventResultsStep();
   }
 
+  // Kalenteridata haetaan 3 kk eteenpäin (ks. kalenterien päivitys) —
+  // sen jälkeisiä aikoja ei voi tarkistaa.
+  function scheduleHorizonMs() {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + 3, now.getDate()).getTime();
+  }
+
+  function parseDateInput(value) {
+    if (!value) return null;
+    const [y, m, d] = value.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  function recRuleFromState(r) {
+    return { freq: r.freq, weekday: r.weekday, nth: r.nth, month: r.month };
+  }
+
+  // Validoi päättymisehdon; palauttaa { count, endDate } tai null.
+  function recEndCondition(r) {
+    if (r.endType === 'count') {
+      const count = Number(r.count);
+      if (!Number.isInteger(count) || count < 2 || count > RECURRENCE_MAX_OCCURRENCES) {
+        alert(t('rec_alert_count'));
+        return null;
+      }
+      return { count, endDate: null };
+    }
+    const endDate = parseDateInput(r.endDate);
+    const startFrom = parseDateInput(r.startFrom) || new Date();
+    if (!endDate || endDate <= recStartOfDay(startFrom)) {
+      alert(t('rec_alert_end_date'));
+      return null;
+    }
+    return { count: null, endDate };
+  }
+
+  // Toistuvan tapahtuman vaihe 1 → 2: näytetään ensimmäisen kerran
+  // ehdotukset säännön mukaisesta ensimmäisestä päivästä alkaen.
+  function searchRecurringFirstSlot() {
+    const s = eventModalState;
+    const r = s.rec;
+    const busy = collectEventBusy();
+    if (!busy) return;
+    if (!recEndCondition(r)) return;
+
+    // Aikaisintaan huomisesta, ettei ensimmäiseksi ehdoteta jo mennyttä aikaa.
+    const tomorrow = recAddDays(recStartOfDay(new Date()), 1);
+    const startFrom = parseDateInput(r.startFrom);
+    const from = startFrom && startFrom > tomorrow ? startFrom : tomorrow;
+    const firstDate = recNextMatchingDate(recRuleFromState(r), from);
+    if (!firstDate) { alert(t('alert_no_slots_found')); return; }
+
+    const win = RECURRENCE_TIME_WINDOWS[r.window];
+    const durationMinutes = Number(s.duration) || 30;
+    const searchDays = r.freq === 'monthly' || r.freq === 'yearly' ? 4 : 1;
+    const searchStart = new Date(Math.max(firstDate.getTime(), Date.now()));
+    const searchEnd = recAddDays(firstDate, searchDays);
+
+    let results = findAvailableSlots({
+      durationMinutes,
+      requiredBusy: busy.requiredBusy,
+      optionalBusyLists: busy.optionalBusyLists,
+      searchStart,
+      searchEnd,
+      preferWindows: [win],
+    });
+
+    // Ei vapaata: näytetään silti säännön mukainen aika, jota käyttäjä voi siirtää.
+    if (results.length === 0) {
+      const start = new Date(firstDate);
+      start.setHours(win.start, 0, 0, 0);
+      results = [{ startMs: start.getTime(), endMs: start.getTime() + durationMinutes * 60000 }];
+    }
+
+    s.results = results;
+    s.selectedResultIdx = 0;
+    s.selStart = results[0].startMs;
+    s.selEnd = results[0].endMs;
+    s.calAnchor = toDateStr(new Date(results[0].startMs));
+    s.occurrences = null;
+    renderEventResultsStep();
+  }
+
+  // Vaihe 2 → 3: valittu ensimmäinen aika määrittää standardin
+  // (kellonaika, kesto ja säännön viikonpäivä) tuleville kerroille.
+  function buildRecurringOccurrences() {
+    const s = eventModalState;
+    const r = s.rec;
+    const end = recEndCondition(r);
+    if (!end) return false;
+    const busy = collectEventBusy();
+    if (!busy) return false;
+
+    const firstDate = new Date(s.selStart);
+    const rule = recDeriveRuleFromDate(recRuleFromState(r), firstDate);
+    if (!recMatchesRule(firstDate, rule)) {
+      alert(t('rec_alert_weekday_only'));
+      return false;
+    }
+
+    const ctx = { ...busy, horizonMs: scheduleHorizonMs(), nowMs: Date.now() };
+    const occurrences = recBuildOccurrences({
+      rule,
+      firstStartMs: s.selStart,
+      durationMs: s.selEnd - s.selStart,
+      count: end.count,
+      endDate: end.endDate,
+      smart: r.smart,
+    }, ctx);
+
+    if (occurrences.length > RECURRENCE_MAX_OCCURRENCES) { alert(t('rec_alert_too_many')); return false; }
+    if (occurrences.length < 2) { alert(t('rec_alert_too_few')); return false; }
+
+    s.recRule = rule;
+    s.recCtx = ctx;
+    s.occurrences = occurrences;
+    return true;
+  }
+
+  function continueRecurring() {
+    if (!buildRecurringOccurrences()) return;
+    if (eventModalState.rec.smart) renderOccurrenceListStep();
+    else openInviteConfirmStep();
+  }
+
+  function renderOccurrenceListStep() {
+    const s = eventModalState;
+    const rows = s.occurrences.map((o, idx) => `
+      <div class="occ-row">
+        <span class="occ-idx">${idx + 1}.</span>
+        <span class="occ-label">${formatSlotLabel(o)}</span>
+        <input type="datetime-local" value="${formatDatetimeLocal(o.startMs)}" onchange="updateOccurrenceStart(${idx}, this.value)" />
+        <span class="occ-badge occ-${o.status}">${t('occ_status_' + o.status)}</span>
+        <button type="button" class="remove-x" title="${t('remove_btn_title')}" onclick="removeOccurrence(${idx})">✕</button>
+      </div>
+    `).join('');
+
+    document.getElementById('modalHost').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal event-modal">
+          <h3>${t('rec_occurrences_heading')}</h3>
+          <p class="rec-hint">${recurrenceSummaryText()}</p>
+          <p class="rec-hint">${t('rec_occ_hint')}</p>
+          <div class="occ-list">${rows}</div>
+          <div class="actions">
+            <button class="secondary" onclick="renderEventResultsStep()">${t('back_btn')}</button>
+            <button onclick="openInviteConfirmStep()">${t('rec_create_invites_btn')}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function updateOccurrenceStart(idx, value) {
+    const s = eventModalState;
+    const startMs = new Date(value).getTime();
+    if (isNaN(startMs)) return;
+    const o = s.occurrences[idx];
+    const durationMs = o.endMs - o.startMs;
+    o.startMs = startMs;
+    o.endMs = startMs + durationMs;
+    o.status = recOccurrenceStatus(o.startMs, o.endMs, o.targetStartMs, s.recCtx);
+    s.occurrences.sort((a, b) => a.startMs - b.startMs);
+    renderOccurrenceListStep();
+  }
+
+  function removeOccurrence(idx) {
+    const s = eventModalState;
+    if (s.occurrences.length <= 1) { alert(t('rec_alert_no_occurrences')); return; }
+    s.occurrences.splice(idx, 1);
+    renderOccurrenceListStep();
+  }
+
+  function formatDateShort(ms) {
+    const d = new Date(ms);
+    return d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear();
+  }
+
+  function recurrenceSummaryText() {
+    const s = eventModalState;
+    const rule = s.recRule;
+    const occ = s.occurrences;
+    const vars = {
+      weekday: weekdayFullArr()[rule.weekday],
+      nth: t('rec_nth_' + rule.nth),
+      month: t('rec_month_nom_' + rule.month),
+    };
+    const first = new Date(occ[0].startMs);
+    const locale = getCurrentLanguage() === 'en' ? 'en-GB' : 'fi-FI';
+    const fmt = (d) => d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+    const time = fmt(first) + '–' + fmt(new Date(occ[0].endMs));
+    return t('rec_summary_' + rule.freq, vars) + ' · ' + t('rec_summary_details', {
+      time,
+      count: occ.length,
+      first: formatDateShort(occ[0].startMs),
+      last: formatDateShort(occ[occ.length - 1].startMs),
+    });
+  }
+
+  function isRecurringSeries() {
+    return eventModalState.mode === 'recurring' && !!eventModalState.occurrences;
+  }
+
   function formatSlotLabel(slot) {
     const start = new Date(slot.startMs);
     const end = new Date(slot.endMs);
@@ -1488,6 +1855,11 @@ function openGroupModal() {
     const startTime = start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
     const endTime = end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
     return `${wd} ${dateStr} ${startTime}–${endTime}`;
+  }
+
+  // Käyttäjän valitsema aika (ehdotus tai raahattu/muokattu valinta).
+  function selectedSlot() {
+    return { startMs: eventModalState.selStart, endMs: eventModalState.selEnd };
   }
 
   function eventSelectedAttendees() {
@@ -1665,7 +2037,7 @@ function openGroupModal() {
     const slotRows = s.results.map((slot, idx) => `
       <div class="slot-row ${idx === s.selectedResultIdx ? 'active' : ''}" onclick="selectEventResult(${idx})">
         <span>${formatSlotLabel(slot)}</span>
-        <span class="rank">${idx + 1}/5</span>
+        <span class="rank">${idx + 1}/${s.results.length}</span>
       </div>
     `).join('');
 
@@ -1698,7 +2070,8 @@ function openGroupModal() {
     document.getElementById('modalHost').innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="modal event-modal">
-          <h3>${t('suggested_times')}</h3>
+          <h3>${s.mode === 'recurring' ? t('rec_pick_first_heading') : t('suggested_times')}</h3>
+          ${s.mode === 'recurring' ? `<p class="rec-hint">${t('rec_pick_first_hint')}</p>` : ''}
           <button class="secondary" onclick="renderEventSelectionStep()">${t('add_more_people_groups')}</button>
 
           <div class="slot-list">${slotRows}</div>
@@ -1722,7 +2095,9 @@ function openGroupModal() {
 
           <div class="actions">
             <button class="secondary" onclick="closeModal()">${t('close')}</button>
-            <button onclick="openInviteConfirmStep()">${t('create_invite_btn')}</button>
+            ${s.mode === 'recurring'
+              ? `<button onclick="continueRecurring()">${s.rec.smart ? t('rec_find_other_times_btn') : t('create_invite_btn')}</button>`
+              : `<button onclick="openInviteConfirmStep()">${t('create_invite_btn')}</button>`}
           </div>
         </div>
       </div>
@@ -1760,8 +2135,7 @@ function openGroupModal() {
   function scrollEventCalToSelected() {
     const el = document.getElementById('eventTimelineCol');
     if (!el) return;
-    const slot = eventModalState.results[eventModalState.selectedResultIdx];
-    const start = new Date(slot.startMs);
+    const start = new Date(eventModalState.selStart);
     const minutesFromWindowStart = (start.getHours() * 60 + start.getMinutes()) - HOURS_START * 60;
     el.scrollLeft = DAY_VISIBLE_PX + Math.max(0, minutesFromWindowStart) * PX_PER_MIN;
   }
@@ -1788,7 +2162,8 @@ function openGroupModal() {
       (g.members || []).forEach((m) => assign(m.participantId, role));
     });
 
-    const slot = s.results[s.selectedResultIdx];
+    // Toistuvassa tapahtumassa konflikti = päällekkäisyys millä tahansa kerralla.
+    const slots = isRecurringSeries() ? s.occurrences : [selectedSlot()];
 
     const list = Object.entries(roleById).map(([id, role]) => {
       const p = latestStatus.participants.find((x) => x.id === id);
@@ -1796,8 +2171,9 @@ function openGroupModal() {
       if (p.email.toLowerCase() === currentUserEmail) return null;
 
       const hasCalendar = p.status === 'authorized' && !!p.scheduleItems;
+      const busy = hasCalendar ? resolvePersonBusy(id) : [];
       const conflict = hasCalendar &&
-        resolvePersonBusy(id).some((b) => overlapsMs(slot.startMs, slot.endMs, b.startMs, b.endMs));
+        slots.some((slot) => busy.some((b) => overlapsMs(slot.startMs, slot.endMs, b.startMs, b.endMs)));
 
             return {
         id,
@@ -1870,8 +2246,17 @@ function openGroupModal() {
 
   function renderInviteConfirmStep() {
     const s = eventModalState;
-    const slot = s.results[s.selectedResultIdx];
     const { required, optional } = buildInviteAttendees();
+    const recurring = isRecurringSeries();
+    const timeHtml = !recurring
+      ? `<div class="invite-time">${formatSlotLabel(selectedSlot())}</div>`
+      : s.rec.smart
+        ? `<div class="invite-time">${t('rec_separate_meetings', { count: s.occurrences.length })}</div>
+           <p class="empty-note" style="margin-top:2px;">${recurrenceSummaryText()}</p>
+           <p class="empty-note" style="margin-top:2px;">${t('rec_separate_note')}</p>`
+        : `<div class="invite-time">${recurrenceSummaryText()}</div>
+           <p class="empty-note" style="margin-top:2px;">${t('rec_series_note')}</p>`;
+    const backAction = recurring && s.rec.smart ? 'renderOccurrenceListStep()' : 'renderEventResultsStep()';
 
     const sendState = inviteSendState();
     const sendDisabled = sendState !== 'ready';
@@ -1893,7 +2278,7 @@ function openGroupModal() {
         <div class="modal event-modal">
           <h3>${t('modal_invite_confirm')}</h3>
 
-          <div class="invite-time">${formatSlotLabel(slot)}</div>
+          ${timeHtml}
           <p class="empty-note" style="margin-top:2px;">${t('invite_organizer_is_you')}</p>
 
           <label style="margin-top:14px;">${t('invite_subject_label')}</label>
@@ -1902,7 +2287,7 @@ function openGroupModal() {
 
           <label>${t('invite_body_label')}</label>
           <textarea class="invite-textarea" rows="3"
-                    oninput="eventModalState.inviteBody = this.value">${s.inviteBody}</textarea>
+                    oninput="eventModalState.inviteBody = this.value">${s.inviteBody || ''}</textarea>
 
           <label>${t('invite_required_label')} (${required.length})</label>
           <div class="chip-row">${attendeeChipsHtml(required)}</div>
@@ -1924,7 +2309,7 @@ function openGroupModal() {
           ${noteHtml}
 
           <div class="actions">
-            <button class="secondary" onclick="renderEventResultsStep()">${t('back_btn')}</button>
+            <button class="secondary" onclick="${backAction}">${t('back_btn')}</button>
             <button id="sendInviteBtn" ${sendDisabled ? 'disabled' : ''}
                     onclick="sendInvite()">${t('send_invites_btn')}</button>
           </div>
@@ -1945,22 +2330,38 @@ function openGroupModal() {
     if (btn) { btn.disabled = true; btn.textContent = t('sending_label'); }
 
     const { required, optional } = buildInviteAttendees();
-    const slot = s.results[s.selectedResultIdx];
+    const payload = {
+      projectId: PROJECT_ID,
+      requiredIds: required.map((a) => a.id),
+      optionalIds: optional.map((a) => a.id),
+      subject: s.inviteTitle,
+      body: s.inviteBody || '',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Helsinki',
+    };
+
+    if (isRecurringSeries() && s.rec.smart) {
+      // Älykäs aikataulutus: erilliset kokoukset, koska kellonajat voivat vaihdella.
+      payload.occurrences = s.occurrences.map((o) => ({
+        start: localDateTimeString(new Date(o.startMs)),
+        end: localDateTimeString(new Date(o.endMs)),
+      }));
+    } else {
+      const slot = isRecurringSeries() ? s.occurrences[0] : selectedSlot();
+      payload.start = localDateTimeString(new Date(slot.startMs));
+      payload.end = localDateTimeString(new Date(slot.endMs));
+      if (isRecurringSeries()) {
+        payload.recurrence = {
+          ...s.recRule,
+          ...(s.rec.endType === 'count' ? { count: s.occurrences.length } : { endDate: s.rec.endDate }),
+        };
+      }
+    }
 
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/create-event`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({
-          projectId: PROJECT_ID,
-          requiredIds: required.map((a) => a.id),
-          optionalIds: optional.map((a) => a.id),
-          subject: s.inviteTitle,
-          body: s.inviteBody,
-          start: localDateTimeString(new Date(slot.startMs)),
-          end: localDateTimeString(new Date(slot.endMs)),
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Helsinki',
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
 
@@ -1978,11 +2379,22 @@ function openGroupModal() {
   }
 
   function renderInviteSentStep(data) {
-    const teamsHtml = data.teamsUrl
+    const s = eventModalState;
+    const separate = isRecurringSeries() && s.rec.smart;
+    const bodyText = separate
+      ? t('rec_sent_separate_body', { created: data.createdCount, total: s.occurrences.length, count: data.attendeeCount })
+      : isRecurringSeries()
+        ? t('rec_sent_series_body', { occurrences: s.occurrences.length, count: data.attendeeCount })
+        : t('invite_sent_body', { count: data.attendeeCount });
+    const failedHtml = (data.failed || []).length
+      ? `<p class="invite-note">${t('rec_sent_failed_label')}<br>${data.failed.map((f) => `${formatDateShort(new Date(f.start).getTime())} ${f.start.slice(11, 16)} – ${f.error}`).join('<br>')}</p>`
+      : '';
+    // Erillisillä kokouksilla jokaisella on oma Teams-linkki — ne löytyvät kalenterista.
+    const teamsHtml = !separate && data.teamsUrl
       ? `<p class="empty-note" style="margin-top:10px;">${t('teams_link_label')}:<br>
            <a href="${data.teamsUrl}" target="_blank" style="color:#2A4B7C; word-break:break-all;">${data.teamsUrl}</a></p>`
       : '';
-    const openHtml = data.webLink
+    const openHtml = !separate && data.webLink
       ? `<p style="margin-top:10px;"><a href="${data.webLink}" target="_blank" style="color:#2A4B7C;">${t('open_in_calendar')}</a></p>`
       : '';
 
@@ -1990,7 +2402,8 @@ function openGroupModal() {
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="modal">
           <h3>${t('invite_sent_heading')}</h3>
-          <p class="sub">${t('invite_sent_body', { count: data.attendeeCount })}</p>
+          <p class="sub">${bodyText}</p>
+          ${failedHtml}
           ${teamsHtml}
           ${openHtml}
           <div class="actions">
