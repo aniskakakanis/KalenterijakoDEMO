@@ -159,7 +159,7 @@ const TRANSLATIONS = {
     modal_settings: "Asetukset",
     view_settings_label: "Näkymän asetukset",
     full_day_option: "Koko vuorokausi (0–24)",
-    business_hours_option: "Työaika (9–17)",
+    business_hours_option: "Työaika (8–18)",
     hide_weekends_label: "Piilota viikonloput",
     calendar_authorized_ok: "✓ Kalenteri on valtuutettu.",
     last_updated_label: "Päivitetty viimeksi",
@@ -174,6 +174,21 @@ const TRANSLATIONS = {
     restrict_visibility_label: "Rajoita kalenterin näkyvyys projektille tiettynä ajankohtana",
     add_new_btn: "+ Lisää uusi",
     no_blackouts: "Ei rajoitusjaksoja.",
+    // Projektisivun ulkoasu
+    nav_projects: "Projektit",
+    nav_organization: "Organisaatio",
+    nav_settings: "Asetukset",
+    btn_participant_short: "+ Osallistuja",
+    btn_group_short: "+ Ryhmä",
+    meta_participants: "{{count}} osallistujaa",
+    meta_authorized: "{{count}} valtuutettu",
+    prev_day: "Edellinen päivä",
+    next_day: "Seuraava päivä",
+    legend_someone_busy: "Joku varattu",
+    legend_all_free: "Kaikki vapaina",
+    legend_not_authorized: "Ei valtuutettu",
+    availability_hidden: "Saatavuus ei näy",
+    busy_lower: "varattu",
     // Toistuva tapahtuma
     event_tab_single: "Yksittäinen tapahtuma",
     event_tab_recurring: "Toistuva tapahtuma",
@@ -485,7 +500,7 @@ const TRANSLATIONS = {
     modal_settings: "Settings",
     view_settings_label: "View settings",
     full_day_option: "Full day (0–24)",
-    business_hours_option: "Business hours (9–17)",
+    business_hours_option: "Business hours (8–18)",
     hide_weekends_label: "Hide weekends",
     calendar_authorized_ok: "✓ Calendar is authorized.",
     last_updated_label: "Last updated",
@@ -500,6 +515,21 @@ const TRANSLATIONS = {
     restrict_visibility_label: "Restrict calendar visibility for the project at a specific time",
     add_new_btn: "+ Add new",
     no_blackouts: "No blackout periods.",
+    // Project page layout
+    nav_projects: "Projects",
+    nav_organization: "Organisation",
+    nav_settings: "Settings",
+    btn_participant_short: "+ Participant",
+    btn_group_short: "+ Group",
+    meta_participants: "{{count}} participants",
+    meta_authorized: "{{count}} authorised",
+    prev_day: "Previous day",
+    next_day: "Next day",
+    legend_someone_busy: "Someone busy",
+    legend_all_free: "Everyone free",
+    legend_not_authorized: "Not authorised",
+    availability_hidden: "Availability not visible",
+    busy_lower: "busy",
     // Recurring event
     event_tab_single: "Single event",
     event_tab_recurring: "Recurring event",
@@ -734,6 +764,9 @@ function applyStaticTranslations() {
   });
   document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
     el.setAttribute('placeholder', t(el.getAttribute('data-i18n-placeholder')));
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    el.setAttribute('title', t(el.getAttribute('data-i18n-title')));
   });
   document.title = t(document.title.startsWith('__') ? document.title.slice(2) : document.title) || document.title;
 }

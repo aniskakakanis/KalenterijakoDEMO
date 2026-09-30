@@ -4,83 +4,196 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Yhteisikkuna — Projektin hallinta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
-  body { font-family: -apple-system, Segoe UI, Inter, sans-serif; background: #EDF0F3; color: #161B22; max-width: 900px; margin: 40px auto; padding: 0 20px 60px; }
-  h1 { font-size: 20px; margin-bottom: 4px; }
+  :root {
+    --nav-bg: #0F1B2D;
+    --page-bg: #F4F5F7;
+    --surface: #FFFFFF;
+    --surface-muted: #F7F8FA;
+    --line: #E3E6EA;
+    --line-soft: #EEF0F3;
+    --text: #161B22;
+    --text-muted: #5B6472;
+    --text-faint: #8A93A3;
+    --primary: #1F3B63;
+    --primary-hover: #172E4D;
+    --busy: #E8A39B;
+    --busy-strong: #C9665B;
+    --free-bg: #D8EFF1;
+    --free-line: #4FA3AE;
+    --free-text: #1F5F68;
+    --ok: #1F7A7A;
+    --warn: #C2611F;
+    --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  }
+
+  body { font-family: 'IBM Plex Sans', -apple-system, 'Segoe UI', sans-serif; background: var(--page-bg); color: var(--text); margin: 0; }
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; margin: 0; }
   p.sub { color: #586174; font-size: 14px; margin-top: 0; }
-  a.back { font-size: 13px; color: #2A4B7C; text-decoration: none; }
-  button { background: #2A4B7C; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-size: 14px; cursor: pointer; margin-right: 8px; }
-  button:hover { background: #1D3559; }
+  a.back { font-size: 13px; color: var(--text-muted); text-decoration: none; }
+  a.back:hover { color: var(--text); }
+  button { font-family: inherit; background: var(--primary); color: #fff; border: 1px solid var(--primary); padding: 9px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; margin-right: 8px; }
+  button:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
   button:disabled { opacity: 0.4; cursor: default; }
-  button.secondary { background: #fff; color: #2A4B7C; border: 1px solid #2A4B7C; }
+  button.secondary { background: var(--surface); color: var(--text); border: 1px solid #D0D5DD; }
+  button.secondary:hover { background: var(--surface-muted); }
   button.danger { background: #fff; color: #C0453A; border: 1px solid #C0453A; }
   button.danger:hover { background: #FBE4E1; }
-  .toolbar { margin: 16px 0 6px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
-  .toolbar .fetched { font-size: 12px; color: #8A93A3; margin-left: 4px; }
-  #inviteResult { margin: 10px 0 16px; font-size: 13px; word-break: break-all; }
+  #inviteResult { margin: 0 0 12px; font-size: 13px; word-break: break-all; }
+  #inviteResult:empty { display: none; }
 
-  .topbar { display: flex; justify-content: space-between; align-items: flex-start; }
+  /* Yläpalkki */
+  .app-nav { background: var(--nav-bg); color: #fff; }
+  .app-nav-inner { max-width: 1360px; margin: 0 auto; padding: 0 40px; height: 64px; display: flex; align-items: center; gap: 40px; }
+  .brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-weight: 700; font-size: 17px; }
+  .nav-links { display: flex; align-items: stretch; height: 100%; gap: 8px; }
+  .nav-links a { display: flex; align-items: center; padding: 0 14px; color: #C9D1DC; text-decoration: none; font-size: 14px; font-weight: 500; border-bottom: 3px solid transparent; border-top: 3px solid transparent; }
+  .nav-links a:hover { color: #fff; }
+  .nav-links a.active { color: #fff; font-weight: 600; border-bottom-color: #7DA2D6; }
+  .nav-user { margin-left: auto; display: flex; align-items: center; gap: 16px; position: relative; }
+  .nav-user-btn { background: none; border: none; color: #fff; display: flex; align-items: center; gap: 10px; padding: 0; margin: 0; font-size: 14px; font-weight: 500; }
+  .nav-user-btn:hover { background: none; }
+  .nav-avatar { width: 32px; height: 32px; border-radius: 50%; background: #2C3E57; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+  .nav-logout { background: none; border: none; color: #C9D1DC; text-decoration: underline; padding: 0; margin: 0; font-size: 13px; font-weight: 400; }
+  .nav-logout:hover { background: none; color: #fff; }
+  #myProfilePanel { color: var(--text); }
 
-  .date-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; font-size: 13px; color: #586174; background: #fff; border: 1px solid #DBDFE5; border-radius: 10px; padding: 10px 14px; flex-wrap: wrap; }
-  .date-bar input[type=date], .date-bar input[type=time] { border: 1px solid #DBDFE5; border-radius: 6px; padding: 5px 7px; font-size: 13px; }
-  .date-bar .today-btn { padding: 5px 10px; font-size: 12px; margin: 0; }
+  /* Sivun otsikko */
+  .page { max-width: 1360px; margin: 0 auto; padding: 28px 40px 60px; }
+  .project-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin: 12px 0 20px; flex-wrap: wrap; }
+  .title-row { display: flex; align-items: center; gap: 14px; }
+  .role-badge { font-size: 12px; font-weight: 600; color: var(--primary); background: #E4E9F1; padding: 3px 10px; border-radius: 999px; }
+  .project-meta { margin: 8px 0 0; font-size: 14px; color: var(--text-muted); display: flex; gap: 20px; flex-wrap: wrap; }
+  .head-actions { display: flex; align-items: center; gap: 10px; }
+  .head-actions button { margin: 0; padding: 12px 16px; font-weight: 600; }
 
-  .board { background: #fff; border: 1px solid #DBDFE5; border-radius: 12px; padding: 18px 20px 8px; }
-  .date-title { font-size: 16px; font-weight: 600; margin: 0 0 14px; }
+  /* Kalenterikortti */
+  .board { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .board-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 24px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .bt-left, .bt-right { display: flex; align-items: center; gap: 10px; position: relative; }
+  .icon-btn { width: 40px; height: 40px; padding: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--surface); color: var(--text); border: 1px solid #D0D5DD; border-radius: 8px; }
+  .icon-btn:hover { background: var(--surface-muted); border-color: #D0D5DD; }
+  .icon-btn svg { width: 16px; height: 16px; }
+  .icon-btn.spinning svg { animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .date-title { background: none; border: none; color: var(--text); font-size: 17px; font-weight: 600; padding: 4px 6px; margin: 0 0 0 6px; border-radius: 6px; }
+  .date-title:hover { background: var(--surface-muted); }
+  .date-picker-input { position: absolute; left: 100px; top: 100%; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; pointer-events: none; }
+  .small-btn { padding: 8px 14px; font-size: 13px; margin: 0; }
+  .fetched { font-family: var(--mono); font-size: 12.5px; color: var(--text-muted); }
+  .seg { display: inline-flex; background: #EEF0F3; border-radius: 8px; padding: 3px; }
+  .seg button { background: none; border: none; color: var(--text-muted); padding: 7px 12px; margin: 0; font-size: 13px; font-weight: 500; border-radius: 6px; }
+  .seg button:hover { background: none; color: var(--text); }
+  .seg button.active { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(15,27,45,0.12); }
 
-  .dual-pane { display: flex; }
-  .names-col { width: 210px; flex: 0 0 210px; }
-  .timeline-col { flex: 1; overflow-x: auto; overflow-y: hidden; }
+  .dual-pane { display: flex; padding-right: 24px; }
+  .names-col { width: 264px; flex: 0 0 264px; }
+  .timeline-col { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .timeline-col::-webkit-scrollbar { display: none; }
+  .timeline-inner { position: relative; }
 
-  .ruler-cell { height: 32px; position: relative; margin-bottom: 4px; }
-  .day-label { position: absolute; top: 0; height: 16px; font-size: 10px; color: #8A93A3; border-left: 1px solid #DBDFE5; padding-left: 4px; box-sizing: border-box; }
-  .hour-label { position: absolute; top: 17px; font-size: 9px; color: #B7BEC8; transform: translateX(-50%); }
-  .ruler-spacer { height: 36px; }
+  .ruler-cell { height: 40px; position: relative; border-bottom: 1px solid var(--line); box-sizing: border-box; }
+  .ruler-spacer { height: 40px; border-bottom: 1px solid var(--line); box-sizing: border-box; }
+  .day-label { position: absolute; top: 0; height: 16px; font-size: 10px; color: var(--text-faint); border-left: 1px solid var(--line); padding-left: 4px; box-sizing: border-box; }
+  .hour-label { position: absolute; top: 17px; font-family: var(--mono); font-size: 12px; color: var(--text-muted); padding-left: 2px; }
+  .event-mini-board .hour-label { font-size: 10px; }
 
-  .hour-grid-line { position: absolute; top: 0; bottom: 0; width: 1px; background: #D7DCE2; z-index: 1; }
+  .hour-grid-line { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-soft); z-index: 1; }
 
-  .section-header-row { display: flex; align-items: center; gap: 6px; height: 30px; cursor: pointer; user-select: none; }
-  .section-header-row .chevron { font-size: 10px; color: #586174; width: 10px; }
-  .section-header-row .title { font-weight: 600; font-size: 13.5px; }
-  .section-header-row .count { color: #8A93A3; font-size: 12px; }
-  .section-spacer-row { height: 30px; border-top: 1px solid #EEF1F4; }
+  .section-header-row { display: flex; align-items: center; gap: 8px; height: 44px; cursor: pointer; user-select: none; padding-left: 24px; }
+  .section-header-row .chevron { display: inline-flex; color: var(--text-muted); transition: transform 0.15s; }
+  .section-header-row .chevron.open { transform: rotate(90deg); }
+  .section-header-row .title { font-weight: 600; font-size: 13px; }
+  .section-header-row .count { color: var(--text-faint); font-size: 13px; }
+  .section-spacer-row { height: 44px; border-top: 1px solid var(--line-soft); }
+  .names-col .section-header-row { border-top: 1px solid var(--line-soft); }
+  .names-col .ruler-spacer + .whole-row + .section-header-row { border-top: none; }
+  .timeline-row.whole-row + .section-spacer-row { border-top: none; }
 
-  .name-row, .timeline-row { height: 44px; display: flex; align-items: center; }
-  .name-row + .name-row, .timeline-row + .timeline-row,
-  .name-row + .section-header-row, .timeline-row + .section-spacer-row { border-top: 1px solid #EEF1F4; }
-  .name-row { gap: 8px; padding-right: 6px; }
+  .name-row, .timeline-row { height: 53px; display: flex; align-items: center; box-sizing: border-box; }
+  .name-row + .name-row, .timeline-row + .timeline-row { border-top: 1px solid var(--line-soft); }
+  .name-row { gap: 12px; padding: 0 6px 0 24px; }
   .name-row.clickable { cursor: pointer; }
+  .whole-row { height: 61px; background: var(--surface-muted); border-bottom: 1px solid var(--line); }
+  .event-mini-board .name-row, .event-mini-board .timeline-row { height: 44px; }
+  .event-mini-board .name-row { padding-left: 0; }
 
-  .avatar { width: 26px; height: 26px; border-radius: 50%; flex: 0 0 26px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 600; }
-  .avatar.group-icon { background: #E1E6EF; color: #2A4B7C; }
-  .avatar.status-circle { background: #fff; border: 2px solid; box-sizing: border-box; }
-  .avatar.status-circle.ok { border-color: #1E6B3C; color: #1E6B3C; }
-  .avatar.status-circle.warn { border-color: #C0453A; color: #C0453A; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; flex: 0 0 32px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 600; box-sizing: border-box; }
+  .avatar.group-icon { border-radius: 8px; background: #E4E9F1; color: var(--primary); }
+  .avatar.group-icon svg { width: 16px; height: 16px; }
+  .avatar.status-circle { background: #fff; border: 2px solid; }
+  .avatar.status-circle.ok { border-color: var(--ok); color: var(--ok); }
+  .avatar.status-circle.warn { border-color: var(--warn); border-style: dashed; color: var(--warn); }
 
   .who-text { display: flex; flex-direction: column; min-width: 0; }
-  .who-text .name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who-text .name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .whole-row .who-text .name { font-weight: 600; }
   .who-text .name.clickable { cursor: pointer; }
   .who-text .name.clickable:hover { text-decoration: underline; }
-  .who-text .status-line { font-size: 11px; margin-top: 1px; }
-  .status-line.group { color: #2A4B7C; }
+  .who-text .status-line { font-size: 12px; margin-top: 1px; }
+  .status-line.group { color: var(--primary); }
+  .status-line.warn { color: var(--warn); }
 
   .timeline-row { position: relative; }
   .timeline-row.clickable { cursor: pointer; }
-  .timeline-cell { position: relative; height: 24px; }
+  .timeline-cell { position: relative; height: 26px; }
+  .whole-row .timeline-cell { height: 34px; }
   .day-bg { position: absolute; top: 0; bottom: 0; background: #EEF1F4; border-radius: 6px; border: 1px solid #DBDFE5; box-sizing: border-box; z-index: 0; }
-  .busy-block { position: absolute; top: 2px; bottom: 2px; background: #E8938A; border-radius: 3px; z-index: 2; }
-  .restricted-block { position: absolute; top: 2px; bottom: 2px; background: #4C6FA5; border-radius: 3px; z-index: 0; opacity: 0.55; }
-  
-  .now-line { position: absolute; top: -20px; bottom: 0; width: 2px; background: #2A4B7C; z-index: 3; }
-  .no-data { color: #8A93A3; font-size: 12.5px; }
+  .board .day-bg { background: none; border: none; border-left: 1px solid var(--line); border-radius: 0; }
+  .busy-block { position: absolute; top: 0; bottom: 0; background: var(--busy); border-radius: 3px; z-index: 2; }
+  .someone-busy-block { position: absolute; top: 0; bottom: 0; background: var(--busy-strong); border-radius: 3px; z-index: 2; }
+  .all-free-block { position: absolute; top: 0; bottom: 0; background: var(--free-bg); border: 1px solid var(--free-line); border-radius: 3px; box-sizing: border-box; z-index: 2; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--free-text); overflow: hidden; white-space: nowrap; }
+  .restricted-block { position: absolute; top: 0; bottom: 0; background: #4C6FA5; border-radius: 3px; z-index: 0; opacity: 0.55; }
 
-  .empty-note { color: #8A93A3; font-size: 12.5px; padding: 6px 0 6px 18px; }
+  .no-auth-band { position: absolute; top: 13px; bottom: 13px; border-radius: 4px; display: flex; align-items: center; padding-left: 12px; font-size: 12.5px; color: var(--text-muted);
+    background: repeating-linear-gradient(135deg, #F1F3F6 0 8px, #E6E9EE 8px 16px); }
+  .no-auth-band.plain { background: var(--surface-muted); }
 
-  .legend { display: flex; gap: 18px; align-items: center; font-size: 11.5px; color: #586174; border-top: 1px solid #EEF1F4; margin-top: 10px; padding: 10px 0; }
-  .legend .swatch { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
-  .legend .swatch.busy { background: #E8938A; }
-  .legend .swatch.free { background: #EEF1F4; border: 1px solid #DBDFE5; }
-    .legend .swatch.restricted { background: #4C6FA5; opacity: 0.55; }
+  .now-line { position: absolute; top: -20px; bottom: 0; width: 2px; background: var(--primary); z-index: 3; }
+  #timelineCol .now-line { display: none; }
+  .now-marker { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--primary); z-index: 5; pointer-events: none; }
+  .now-badge { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); background: var(--primary); color: #fff; font-family: var(--mono); font-size: 11px; font-weight: 500; padding: 1px 5px; border-radius: 3px; white-space: nowrap; }
+  .no-data { color: var(--text-faint); font-size: 12.5px; }
+
+  .empty-note { color: var(--text-faint); font-size: 12.5px; padding: 6px 0 6px 18px; }
+
+  .legend { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--text-muted); margin-top: 24px; padding: 16px 24px; }
+  .legend .swatch { display: inline-block; width: 16px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; box-sizing: border-box; }
+  .legend .swatch.busy { background: var(--busy); }
+  .legend .swatch.someone-busy { background: var(--busy-strong); }
+  .legend .swatch.all-free { background: var(--free-bg); border: 1px solid var(--free-line); }
+  .legend .swatch.no-auth { background: repeating-linear-gradient(135deg, #F1F3F6 0 3px, #D9DDE3 3px 6px); }
+  .legend .swatch.restricted { background: #4C6FA5; opacity: 0.55; }
+
+  .head-actions button, .seg button, .date-title { white-space: nowrap; }
+  @media (max-width: 900px) {
+    .app-nav-inner, .page { padding-left: 16px; padding-right: 16px; }
+    .app-nav-inner { gap: 16px; }
+    .nav-links a { padding: 0 8px; }
+    #navUserName { display: none; }
+    h1 { font-size: 22px; }
+    .head-actions { flex-wrap: wrap; }
+    .head-actions button { padding: 10px 12px; }
+    .board-toolbar { padding: 12px 16px; }
+    .names-col { width: 160px; flex-basis: 160px; }
+    .name-row, .section-header-row { padding-left: 16px; }
+    .dual-pane { padding-right: 16px; }
+    .legend { padding: 14px 16px; gap: 14px; }
+    .bt-left, .bt-right { flex-wrap: wrap; }
+    .date-title { font-size: 15px; white-space: normal; text-align: left; }
+  }
+  @media (max-width: 600px) {
+    .nav-links { display: none; }
+    .brand { font-size: 15px; }
+    .names-col { width: 132px; flex-basis: 132px; }
+    .name-row { gap: 8px; }
+    .who-text .name { font-size: 13px; }
+  }
+
+  .tip-box { position: fixed; z-index: 50; background: var(--nav-bg); color: #fff; font-size: 12.5px; font-weight: 500; padding: 6px 10px; border-radius: 6px; pointer-events: none; white-space: nowrap; transform: translate(-50%, -100%); display: none; }
 
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; z-index: 10; overflow-y: auto; padding: 30px 0; }
   .modal { background: #fff; border-radius: 12px; padding: 22px; width: 380px; max-width: 90vw; }
@@ -162,6 +275,7 @@
   .rec-inline label { display: flex; align-items: center; gap: 6px; margin: 0; color: #161B22; }
   .rec-panel select, .rec-panel input[type=number], .rec-panel input[type=date] { padding: 6px 7px; border: 1px solid #DBDFE5; border-radius: 7px; font-size: 13px; }
   .rec-panel input[type=number] { width: 60px; }
+  .rec-panel input.rec-duration { width: 80px; }
   .rec-end-rows { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
   .rec-smart { margin-top: 16px; padding: 10px 12px; background: #F6F8FA; border: 1px solid #EEF1F4; border-radius: 8px; }
   .rec-smart label { display: flex; align-items: center; gap: 6px; margin: 0; color: #161B22; font-weight: 600; font-size: 13px; }
@@ -219,69 +333,112 @@
 </head>
 <body>
 
-<div class="topbar">
-  <div>
-    <a class="back" href="/projektit.html">&larr; <span data-i18n="back_all_projects"></span></a>
-    <h1 id="projectName">Ladataan projektia…</h1>
-    <p class="sub" id="projectOwner"></p>
-  </div>
-  <div style="display:flex; align-items:center; gap:8px; position:relative;">
-    <button class="secondary" id="myProfileBtn" onclick="toggleMyProfilePanel()" data-i18n="loading"></button>
-    <button class="secondary" onclick="logout()" data-i18n="logout"></button>
-    <div id="myProfilePanel" style="display:none; position:absolute; top:44px; right:0; width:260px; background:#fff; border:1px solid #DBDFE5; border-radius:10px; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,0.08); z-index:5; text-align:left;">
-      <div style="font-weight:600; font-size:14px;" id="panelName"></div>
-      <div style="color:#586174; font-size:12.5px; margin-top:2px;" id="panelEmail"></div>
-      <div style="color:#586174; font-size:12.5px; margin-top:2px;" id="panelOrg"></div>
-      <div style="display:inline-block; margin-top:8px; padding:3px 10px; border-radius:999px; font-size:11px; background:#E1E6EF; color:#2A4B7C;" id="panelRole"></div>
-      <div style="margin-top:14px;">
-        <a href="/oma-profiili.html" style="color:#2A4B7C; font-size:13px; text-decoration:underline;" data-i18n="my_settings"></a>
+<header class="app-nav">
+  <div class="app-nav-inner">
+    <a class="brand" href="/projektit.html">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="1.5" y="1.5" width="8" height="8" rx="1.5"/><rect x="12.5" y="1.5" width="8" height="8" rx="1.5"/><rect x="1.5" y="12.5" width="8" height="8" rx="1.5"/><rect x="12.5" y="12.5" width="8" height="8" rx="1.5"/></svg>
+      Yhteisikkuna
+    </a>
+    <nav class="nav-links">
+      <a class="active" href="/projektit.html" data-i18n="nav_projects"></a>
+      <a id="navOrg" href="/asiakkaat.html" style="display:none;" data-i18n="nav_organization"></a>
+      <a href="/oma-profiili.html" data-i18n="nav_settings"></a>
+    </nav>
+    <div class="nav-user">
+      <button class="nav-user-btn" id="myProfileBtn" onclick="toggleMyProfilePanel()">
+        <span class="nav-avatar" id="navAvatar"></span>
+        <span id="navUserName" data-i18n="loading"></span>
+      </button>
+      <button class="nav-logout" onclick="logout()" data-i18n="logout"></button>
+      <div id="myProfilePanel" style="display:none; position:absolute; top:48px; right:0; width:260px; background:#fff; border:1px solid #DBDFE5; border-radius:10px; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12); z-index:20; text-align:left;">
+        <div style="font-weight:600; font-size:14px;" id="panelName"></div>
+        <div style="color:#586174; font-size:12.5px; margin-top:2px;" id="panelEmail"></div>
+        <div style="color:#586174; font-size:12.5px; margin-top:2px;" id="panelOrg"></div>
+        <div style="display:inline-block; margin-top:8px; padding:3px 10px; border-radius:999px; font-size:11px; background:#E1E6EF; color:#2A4B7C;" id="panelRole"></div>
+        <div style="margin-top:14px;">
+          <a href="/oma-profiili.html" style="color:#2A4B7C; font-size:13px; text-decoration:underline;" data-i18n="my_settings"></a>
+        </div>
+        <div class="lang-picker">
+          <span data-i18n="language_label"></span>
+          <div id="langButtons"></div>
+        </div>
       </div>
-      <div class="lang-picker">
-        <span data-i18n="language_label"></span>
-        <div id="langButtons"></div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <a class="back" href="/projektit.html">&larr; <span data-i18n="back_all_projects"></span></a>
+
+  <div class="project-head">
+    <div>
+      <div class="title-row">
+        <h1 id="projectName">Ladataan projektia…</h1>
+        <span class="role-badge" id="myRoleBadge" style="display:none;"></span>
+      </div>
+      <p class="project-meta">
+        <span id="projectOwner"></span>
+        <span id="projectCounts"></span>
+      </p>
+    </div>
+    <div class="head-actions">
+      <button class="secondary" id="addParticipantBtn" onclick="openAddParticipantModal()" data-i18n="btn_participant_short"></button>
+      <button class="secondary" onclick="openGroupModal()" data-i18n="btn_group_short"></button>
+      <button class="secondary" onclick="openSettingsModal()" data-i18n="btn_settings"></button>
+      <button onclick="openCreateEventModal()" data-i18n="btn_new_event"></button>
+    </div>
+  </div>
+  <div id="inviteResult"></div>
+
+  <div class="board">
+    <div class="board-toolbar">
+      <div class="bt-left">
+        <button type="button" class="icon-btn" onclick="stepViewDay(-1)" data-i18n-title="prev_day">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg>
+        </button>
+        <button type="button" class="icon-btn" onclick="stepViewDay(1)" data-i18n-title="next_day">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+        </button>
+        <button type="button" class="date-title" id="dateTitle" onclick="openDatePicker()"></button>
+        <input type="date" id="viewDate" class="date-picker-input" tabindex="-1" onchange="onViewDateChange()" />
+        <button type="button" class="secondary small-btn" onclick="jumpToToday()" data-i18n="today"></button>
+      </div>
+      <div class="bt-right">
+        <span class="fetched" id="fetchedSummary"></span>
+        <button type="button" class="icon-btn" id="refreshBtn" onclick="refreshSchedules()" data-i18n-title="btn_refresh_schedules">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5v3h-3"/></svg>
+        </button>
+        <div class="seg" role="group">
+          <button type="button" id="segBusiness" onclick="setDayRangeMode('business')">8–18</button>
+          <button type="button" id="segFull" onclick="setDayRangeMode('full')">24 h</button>
+        </div>
       </div>
     </div>
-  </div>
-</div>
 
-<div class="toolbar">
-  <button onclick="openGroupModal()" data-i18n="btn_new_group"></button>
-  <button id="addParticipantBtn" onclick="openAddParticipantModal()" data-i18n="btn_add_participant"></button>
-  <button onclick="openCreateEventModal()" data-i18n="btn_new_event"></button>
-  <button class="secondary" onclick="refreshSchedules()" data-i18n="btn_refresh_schedules"></button>
-  <button class="secondary" onclick="openSettingsModal()" data-i18n="btn_settings"></button>
-  <span class="fetched" id="fetchedSummary"></span>
-</div>
-<div id="inviteResult"></div>
-
-<div class="date-bar">
-  <span data-i18n="show_date"></span>
-  <input type="date" id="viewDate" onchange="onViewDateChange()" />
-  <button type="button" class="secondary today-btn" onclick="jumpToToday()" data-i18n="today"></button>
-  <span style="margin-left:12px;" data-i18n="jump_to_time"></span>
-  <input type="time" id="jumpTime" step="1800" />
-  <button type="button" class="secondary today-btn" onclick="jumpToTime()" data-i18n="jump"></button>
-</div>
-
-<div class="board">
-  <div class="date-title" id="dateTitle"></div>
-
-  <div class="dual-pane">
-    <div class="names-col" id="namesCol">
-      <div class="ruler-spacer"></div>
+    <div class="dual-pane">
+      <div class="names-col" id="namesCol">
+        <div class="ruler-spacer"></div>
+      </div>
+      <div class="timeline-col" id="mainTimelineCol">
+        <div class="timeline-inner" id="mainTimelineInner">
+          <div class="ruler-cell" id="mainRuler"></div>
+          <div id="timelineCol"></div>
+          <div id="nowOverlay"></div>
+        </div>
+      </div>
     </div>
-    <div class="timeline-col" id="mainTimelineCol">
-      <div class="ruler-cell" id="mainRuler"></div>
-      <div id="timelineCol"></div>
+
+    <div class="legend">
+      <span><span class="swatch busy"></span><span data-i18n="legend_busy"></span></span>
+      <span><span class="swatch someone-busy"></span><span data-i18n="legend_someone_busy"></span></span>
+      <span><span class="swatch all-free"></span><span data-i18n="legend_all_free"></span></span>
+      <span><span class="swatch no-auth"></span><span data-i18n="legend_not_authorized"></span></span>
+      <span><span class="swatch restricted"></span><span data-i18n="legend_restricted"></span></span>
     </div>
   </div>
+</main>
 
-   <div class="legend">
-    <span><span class="swatch busy"></span><span data-i18n="legend_busy"></span></span>
-    <span><span class="swatch free"></span><span data-i18n="legend_free"></span></span>
-    <span><span class="swatch restricted"></span><span data-i18n="legend_restricted"></span></span>
-  </div>
-</div>
+<div class="tip-box" id="tipBox"></div>
 
 <div id="modalHost"></div>
 
@@ -296,8 +453,11 @@ const paramsUrl = new URLSearchParams(window.location.search);
   const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ycmh2Ynh2a2l6dmtjd3dnbGNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0NjU3NDAsImV4cCI6MjEwMzA0MTc0MH0.S_M4KyTt4E_UG0ue-T-h89L17yxJKkmb36ZzNRdQnLI";
   const client = supabase.createClient(SUPABASE_URL, ANON_KEY);
 
-  const HOUR_PX = 80;
-  const PX_PER_MIN = HOUR_PX / 60;
+  // Tunnin leveys sovitetaan niin, että yksi päivä täyttää aikajanan näkyvän
+  // leveyden (ks. computeHoursWindow). 80 px on alkuarvo ennen mittausta.
+  let HOUR_PX = 80;
+  let PX_PER_MIN = HOUR_PX / 60;
+  const MIN_HOUR_PX = 40;
   const BUFFER_DAYS = 5;
 
   function weekdayShortArr() {
@@ -323,9 +483,20 @@ const paramsUrl = new URLSearchParams(window.location.search);
   let DAY_VISIBLE_PX = 24 * HOUR_PX;
 
   function computeHoursWindow() {
-    if (dayRangeMode === 'business') { HOURS_START = 9; HOURS_END = 17; }
+    if (dayRangeMode === 'business') { HOURS_START = 8; HOURS_END = 18; }
     else { HOURS_START = 0; HOURS_END = 24; }
+    const col = document.getElementById('mainTimelineCol');
+    const visibleWidth = col ? col.clientWidth : 0;
+    if (visibleWidth > 0) {
+      HOUR_PX = Math.max(MIN_HOUR_PX, visibleWidth / (HOURS_END - HOURS_START));
+      PX_PER_MIN = HOUR_PX / 60;
+    }
     DAY_VISIBLE_PX = (HOURS_END - HOURS_START) * HOUR_PX;
+  }
+
+  function updateDayRangeSegment() {
+    document.getElementById('segBusiness').classList.toggle('active', dayRangeMode === 'business');
+    document.getElementById('segFull').classList.toggle('active', dayRangeMode === 'full');
   }
 
   function loadViewPrefsFromStorage() {
@@ -344,6 +515,7 @@ const paramsUrl = new URLSearchParams(window.location.search);
     dayRangeMode = mode;
     computeHoursWindow();
     saveViewPrefs();
+    updateDayRangeSegment();
     renderAll();
     setHomeScroll();
   }
@@ -370,7 +542,14 @@ const paramsUrl = new URLSearchParams(window.location.search);
   // toistaiseksi aina false, jolloin lähetysnappi on harmaa.
   let canWriteCalendar = false;
 
-  let sectionCollapsed = { people: false, owngroups: false, projectgroups: false };
+  // null = automaattinen: osio on kiinni, jos se on tyhjä. Käyttäjän valinta ohittaa.
+  let sectionCollapsed = { people: null, owngroups: null, projectgroups: null };
+  const sectionCounts = {};
+
+  function isSectionCollapsed(section) {
+    const explicit = sectionCollapsed[section];
+    return explicit === null ? sectionCounts[section] === 0 : explicit;
+  }
 
   async function ensureLoggedIn() {
     const { data: { session } } = await client.auth.getSession();
@@ -439,7 +618,10 @@ const paramsUrl = new URLSearchParams(window.location.search);
     renderLangButtons();
 
     const name = (data.firstName || data.lastName) ? `${data.firstName} ${data.lastName}`.trim() : data.email;
-    document.getElementById('myProfileBtn').textContent = name;
+    document.getElementById('navUserName').textContent = name;
+    document.getElementById('navAvatar').textContent = initialsFor(name);
+    // Organisaationäkymä on toistaiseksi vain pääkäyttäjälle (asiakkaat.html).
+    document.getElementById('navOrg').style.display = data.isSuperadmin ? '' : 'none';
     document.getElementById('panelName').textContent = name;
     document.getElementById('panelEmail').textContent = data.email;
         document.getElementById('panelOrg').innerHTML = data.organization
@@ -492,20 +674,24 @@ function bufferDates(anchor) {
     return toDateStr(d);
   }
 
-  function rulerHtml(anchor) {
+  // Pääaikajanalla päivän nimi näkyy työkalurivin otsikossa, joten päivätekstit
+  // piirretään vain tapahtumamodaalin minikalenteriin (showDayLabels).
+  function rulerHtml(anchor, showDayLabels = true) {
     const dates = bufferDates(anchor);
     const wdShort = weekdayShortArr();
     let html = '';
     dates.forEach((dateStr, i) => {
       const d = new Date(dateStr + 'T00:00:00');
       const label = wdShort[(d.getDay() + 6) % 7] + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '.';
-      html += `<div class="day-label" style="left:${i * DAY_VISIBLE_PX}px; width:${DAY_VISIBLE_PX}px;">${label}</div>`;
+      if (showDayLabels) {
+        html += `<div class="day-label" style="left:${i * DAY_VISIBLE_PX}px; width:${DAY_VISIBLE_PX}px;">${label}</div>`;
+      }
       // Päivän loppuotsikko osuu samaan kohtaan kuin seuraavan päivän alkuotsikko,
       // joten se piirretään vain viimeiselle päivälle.
       const lastHour = i === dates.length - 1 ? HOURS_END : HOURS_END - 1;
       for (let h = HOURS_START; h <= lastHour; h++) {
         const x = i * DAY_VISIBLE_PX + (h - HOURS_START) * HOUR_PX;
-        html += `<div class="hour-label" style="left:${x}px;">${h}</div>`;
+        html += `<div class="hour-label" style="left:${x}px;">${String(h).padStart(2, '0')}</div>`;
       }
     });
     return html;
@@ -530,7 +716,7 @@ function bufferDates(anchor) {
     return html;
   }
 
-  function busyBlocksHtml(items, anchor) {
+  function busyBlocksHtml(items, anchor, who) {
     const dates = bufferDates(anchor);
     const winStart = HOURS_START * 60;
     const winEnd = HOURS_END * 60;
@@ -556,7 +742,10 @@ function bufferDates(anchor) {
       const locale = getCurrentLanguage() === 'en' ? 'en-GB' : 'fi-FI';
       const startLabel = start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
       const endLabel = end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
-      html += `<div class="busy-block" style="left:${leftPx}px; width:${widthPx}px;" title="${t('legend_busy')} ${startLabel}–${endLabel}"></div>`;
+      const tip = who
+        ? `${who} · ${t('busy_lower')} ${startLabel}–${endLabel}`
+        : `${t('legend_busy')} ${startLabel}–${endLabel}`;
+      html += `<div class="busy-block" style="left:${leftPx}px; width:${widthPx}px;" data-tip="${escapeAttr(tip)}"></div>`;
     });
     return html;
   }
@@ -594,6 +783,104 @@ function bufferDates(anchor) {
     if (nowMin < HOURS_START * 60 || nowMin >= HOURS_END * 60) return '';
     const leftPx = todayIdx * DAY_VISIBLE_PX + (nowMin - HOURS_START * 60) * PX_PER_MIN;
     return `<div class="now-line" style="left:${leftPx}px;"></div>`;
+  }
+
+  // Raidallinen "ei tietoa" -kaista päiväkohtaisesti, jotta teksti näkyy
+  // jokaisen päivän alussa riippumatta vierityskohdasta.
+  function dayBandsHtml(extraClass, text) {
+    let html = '';
+    for (let i = 0; i < BUFFER_DAYS; i++) {
+      html += `<div class="no-auth-band ${extraClass}" style="left:${i * DAY_VISIBLE_PX}px; width:${DAY_VISIBLE_PX}px;">${text}</div>`;
+    }
+    return html;
+  }
+
+  function escapeAttr(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+
+  function formatHourMinute(d) {
+    return d.getMinutes() === 0 ? String(d.getHours()) : d.getHours() + '.' + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  // "Koko projekti" -rivi: valtuutettujen osallistujien varaukset yhdistettynä
+  // ("joku varattu") ja niiden väliin jäävät yhteiset vapaat ajat ("kaikki
+  // vapaina"). Vapaat ajat näytetään vain arkipäivien klo 8–18 väliltä — samat
+  // rajat kuin aikaehdotuksissa — ettei esim. yö näy yhteisenä vapaana aikana.
+  const ALL_FREE_DAY_START_HOUR = 8;
+  const ALL_FREE_DAY_END_HOUR = 18;
+  const ALL_FREE_MIN_MINUTES = 15;
+
+  function wholeProjectCellHtml(participants, anchor) {
+    const busy = [];
+    participants.forEach((p) => {
+      (p.scheduleItems || []).forEach((i) => {
+        if (i.status !== 'busy') return;
+        busy.push({ s: new Date(i.start.dateTime + 'Z').getTime(), e: new Date(i.end.dateTime + 'Z').getTime() });
+      });
+    });
+
+    let html = '';
+    bufferDates(anchor).forEach((dateStr, dayIdx) => {
+      const day = new Date(dateStr + 'T00:00:00');
+      const winStartMs = day.getTime() + HOURS_START * 3600000;
+      const winEndMs = day.getTime() + HOURS_END * 3600000;
+      const toPx = (ms) => dayIdx * DAY_VISIBLE_PX + (ms - winStartMs) / 60000 * PX_PER_MIN;
+
+      // Päivän varaukset ikkunaan rajattuna ja yhdistettynä.
+      const merged = [];
+      busy
+        .filter((b) => b.e > winStartMs && b.s < winEndMs)
+        .map((b) => ({ s: Math.max(b.s, winStartMs), e: Math.min(b.e, winEndMs) }))
+        .sort((a, b) => a.s - b.s)
+        .forEach((b) => {
+          const last = merged[merged.length - 1];
+          if (last && b.s <= last.e) last.e = Math.max(last.e, b.e);
+          else merged.push({ ...b });
+        });
+
+      merged.forEach((b) => {
+        const tip = `${t('legend_someone_busy')} ${formatHourMinute(new Date(b.s))}–${formatHourMinute(new Date(b.e))}`;
+        html += `<div class="someone-busy-block" style="left:${toPx(b.s)}px; width:${toPx(b.e) - toPx(b.s)}px;" data-tip="${tip}"></div>`;
+      });
+
+      const weekday = (day.getDay() + 6) % 7;
+      if (weekday >= 5) return;
+      const freeFrom = Math.max(winStartMs, day.getTime() + ALL_FREE_DAY_START_HOUR * 3600000);
+      const freeTo = Math.min(winEndMs, day.getTime() + ALL_FREE_DAY_END_HOUR * 3600000);
+      let cursor = freeFrom;
+      const gaps = [];
+      merged.forEach((b) => {
+        if (b.s > cursor) gaps.push({ s: cursor, e: Math.min(b.s, freeTo) });
+        cursor = Math.max(cursor, b.e);
+      });
+      if (cursor < freeTo) gaps.push({ s: cursor, e: freeTo });
+
+      gaps
+        .filter((g) => g.e - g.s >= ALL_FREE_MIN_MINUTES * 60000)
+        .forEach((g) => {
+          const label = `${formatHourMinute(new Date(g.s))}–${formatHourMinute(new Date(g.e))}`;
+          const width = toPx(g.e) - toPx(g.s);
+          html += `<div class="all-free-block" style="left:${toPx(g.s)}px; width:${width}px;" data-tip="${t('legend_all_free')} ${label}">${width >= 56 ? label : ''}</div>`;
+        });
+    });
+    return html;
+  }
+
+  // Nykyhetken merkki koko aikajanan korkeudelta, kellonaika yläreunassa.
+  function renderNowOverlay() {
+    const el = document.getElementById('nowOverlay');
+    if (!el) return;
+    const dates = bufferDates();
+    const todayIdx = dates.indexOf(todayDateStr());
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    if (todayIdx === -1 || nowMin < HOURS_START * 60 || nowMin >= HOURS_END * 60) {
+      el.innerHTML = '';
+      return;
+    }
+    const leftPx = todayIdx * DAY_VISIBLE_PX + (nowMin - HOURS_START * 60) * PX_PER_MIN;
+    el.innerHTML = `<div class="now-marker" style="left:${leftPx}px;"><span class="now-badge">${now.getHours()}.${String(now.getMinutes()).padStart(2, '0')}</span></div>`;
   }
 
   function totalWidthPx() {
@@ -642,12 +929,6 @@ function bufferDates(anchor) {
     });
   }
 
-  function defaultJumpTimeValue() {
-    const now = new Date();
-    let m = now.getMinutes() < 30 ? 0 : 30;
-    return String(now.getHours()).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-  }
-
   function nameLabelFor(p) {
     return (p.firstName || p.lastName) ? `${p.firstName || ''} ${p.lastName || ''}`.trim() : p.email;
   }
@@ -659,7 +940,7 @@ function bufferDates(anchor) {
   }
 
   function groupAvatarHtml() {
-    return `<div class="avatar group-icon">👥</div>`;
+    return `<div class="avatar group-icon"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="6" cy="5.5" r="2.3"/><path d="M1.8 13c.4-2.3 2.2-3.6 4.2-3.6s3.8 1.3 4.2 3.6"/><circle cx="11.2" cy="6.2" r="1.8"/><path d="M11 9.6c1.6 0 2.9 1 3.2 2.9"/></svg></div>`;
   }
 
   function participantAvatarHtml(p) {
@@ -686,12 +967,34 @@ function bufferDates(anchor) {
     setHomeScroll();
   }
 
-  function jumpToTime() {
-    const timeVal = document.getElementById('jumpTime').value;
-    if (!timeVal) return;
-    const [h, m] = timeVal.split(':').map(Number);
-    const minutesFromWindowStart = (h * 60 + m) - HOURS_START * 60;
-    document.getElementById('mainTimelineCol').scrollLeft = DAY_VISIBLE_PX + Math.max(0, minutesFromWindowStart) * PX_PER_MIN;
+  // Päivä, joka on vierityksen jälkeen aikajanan näkyvän alueen keskellä.
+  function visibleDateStr() {
+    const col = document.getElementById('mainTimelineCol');
+    const centerPx = col.scrollLeft + col.clientWidth / 2;
+    const idx = Math.min(BUFFER_DAYS - 1, Math.max(0, Math.floor(centerPx / DAY_VISIBLE_PX)));
+    return bufferDates()[idx];
+  }
+
+  function stepViewDay(direction) {
+    if (!anchorDateStr) return;
+    anchorDateStr = stepDay(visibleDateStr(), direction);
+    document.getElementById('viewDate').value = anchorDateStr;
+    renderAll();
+    setHomeScroll();
+  }
+
+  function openDatePicker() {
+    const input = document.getElementById('viewDate');
+    if (input.showPicker) input.showPicker();
+    else input.click();
+  }
+
+  function updateDateTitle(dateStr) {
+    if (!dateStr) return;
+    const d = new Date(dateStr + 'T00:00:00');
+    const wdName = weekdayFullArr()[(d.getDay() + 6) % 7];
+    document.getElementById('dateTitle').textContent =
+      wdName.charAt(0).toUpperCase() + wdName.slice(1) + ' ' + d.getDate() + '. ' + monthFullArr()[d.getMonth()] + ' ' + d.getFullYear();
   }
 
   const GOOGLE_CLIENT_ID = "1023786751364-dbpmrjj0k1fggbfbb88r7p167o6bt84h.apps.googleusercontent.com";
@@ -755,7 +1058,6 @@ async function loadStatus() {
     if (!anchorDateStr) {
       anchorDateStr = todayDateStr();
       document.getElementById('viewDate').value = anchorDateStr;
-      document.getElementById('jumpTime').value = defaultJumpTimeValue();
     }
 
     renderAll();
@@ -783,16 +1085,16 @@ async function loadStatus() {
   }
 
   function toggleSection(section) {
-    sectionCollapsed[section] = !sectionCollapsed[section];
+    sectionCollapsed[section] = !isSectionCollapsed(section);
     renderAll();
   }
 
   function sectionHeaderPair(section, title, count) {
-    const collapsed = sectionCollapsed[section];
-    const chevron = collapsed ? '▶' : '▼';
+    sectionCounts[section] = count;
+    const collapsed = isSectionCollapsed(section);
     const nameSide = `
       <div class="section-header-row" onclick="toggleSection('${section}')">
-        <span class="chevron">${chevron}</span>
+        <span class="chevron ${collapsed ? '' : 'open'}"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m4.5 2.5 3.5 3.5-3.5 3.5"/></svg></span>
         <span class="title">${title}</span>
         <span class="count">${count}</span>
       </div>
@@ -806,7 +1108,20 @@ async function loadStatus() {
     if (!data) return;
 
     document.getElementById('projectName').textContent = data.project.name;
-    document.getElementById('projectOwner').textContent = t('responsible_person') + ': ' + data.project.owner_email;
+    document.getElementById('projectOwner').textContent = t('responsible_person') + ' ' + data.project.owner_email;
+    const authorizedCount = data.participants.filter((p) => p.status === 'authorized').length;
+    document.getElementById('projectCounts').textContent =
+      t('meta_participants', { count: data.participants.length }) + ' · ' + t('meta_authorized', { count: authorizedCount });
+
+    const mine = data.participants.find((p) => p.email.toLowerCase() === currentUserEmail);
+    const isOwner = data.project.owner_email.toLowerCase() === currentUserEmail;
+    const roleBadge = document.getElementById('myRoleBadge');
+    if (mine || isOwner) {
+      roleBadge.textContent = (isOwner || mine.role === 'admin') ? t('role_admin') : t('role_guest');
+      roleBadge.style.display = '';
+    } else {
+      roleBadge.style.display = 'none';
+    }
         const addBtn = document.getElementById('addParticipantBtn');
     if (isAdminForProject(data)) {
       addBtn.disabled = false;
@@ -816,26 +1131,21 @@ async function loadStatus() {
       addBtn.title = t('contact_admin_note');
     }
 
+    document.getElementById('mainTimelineInner').style.width = totalWidthPx() + 'px';
     document.getElementById('mainRuler').style.width = totalWidthPx() + 'px';
-    document.getElementById('mainRuler').innerHTML = rulerHtml();
-
-    const d = new Date(anchorDateStr + 'T00:00:00');
-    const wdFull = weekdayFullArr();
-    const moFull = monthFullArr();
-    const wdName = wdFull[(d.getDay() + 6) % 7];
-    document.getElementById('dateTitle').textContent =
-      wdName.charAt(0).toUpperCase() + wdName.slice(1) +
-      ' ' + d.getDate() + '. ' + moFull[d.getMonth()] + ' ' + d.getFullYear();
+    document.getElementById('mainRuler').innerHTML = rulerHtml(undefined, false);
+    updateDateTitle(anchorDateStr);
+    updateDayRangeSegment();
 
     const authorized = data.participants.filter((p) => p.status === 'authorized' && p.fetchedAt);
     const fetchedEl = document.getElementById('fetchedSummary');
-    const locale = getCurrentLanguage() === 'en' ? 'en-GB' : 'fi-FI';
-    fetchedEl.textContent = authorized.length === 0
-      ? t('no_schedules_fetched')
-      : t('fetched_at') + ': ' + new Date(authorized.reduce((a, b) => (new Date(a.fetchedAt) > new Date(b.fetchedAt) ? a : b)).fetchedAt).toLocaleString(locale);
-
-    const allBusy = [];
-    authorized.forEach((p) => { if (p.scheduleItems) allBusy.push(...p.scheduleItems); });
+    if (authorized.length === 0) {
+      fetchedEl.textContent = t('no_schedules_fetched');
+    } else {
+      const latest = new Date(authorized.reduce((a, b) => (new Date(a.fetchedAt) > new Date(b.fetchedAt) ? a : b)).fetchedAt);
+      fetchedEl.textContent = t('fetched_at') + ' ' + latest.getDate() + '.' + (latest.getMonth() + 1) + '. '
+        + String(latest.getHours()).padStart(2, '0') + '.' + String(latest.getMinutes()).padStart(2, '0');
+    }
 
     const namesCol = document.getElementById('namesCol');
     const timelineCol = document.getElementById('timelineCol');
@@ -843,38 +1153,41 @@ async function loadStatus() {
     timelineCol.innerHTML = '';
 
     namesCol.innerHTML += `
-      <div class="name-row">
+      <div class="name-row whole-row">
         ${groupAvatarHtml()}
         <div class="who-text"><span class="name">${t('whole_project')}</span></div>
       </div>
     `;
-    timelineCol.innerHTML += `<div class="timeline-row" style="width:${totalWidthPx()}px;">${timelineCellHtml(allBusy)}</div>`;
+    timelineCol.innerHTML += `<div class="timeline-row whole-row" style="width:${totalWidthPx()}px;"><div class="timeline-cell" style="width:${totalWidthPx()}px;">${wholeProjectCellHtml(authorized)}</div></div>`;
 
     const peopleHeader = sectionHeaderPair('people', t('section_people'), data.participants.length);
     namesCol.innerHTML += peopleHeader.nameSide;
     timelineCol.innerHTML += peopleHeader.timelineSide;
 
-    if (!sectionCollapsed.people) {
+    if (!isSectionCollapsed('people')) {
       data.participants.forEach((p) => {
         const label = nameLabelFor(p);
+        const statusLine = p.status === 'authorized' ? ''
+          : `<span class="status-line warn">${t(p.status === 'expired' ? 'cal_status_expired' : 'cal_status_not_authorized')}</span>`;
         namesCol.innerHTML += `
           <div class="name-row clickable" onclick="openParticipantDetail('${p.id}')">
             ${participantAvatarHtml(p)}
-            <div class="who-text"><span class="name clickable">${label}</span></div>
+            <div class="who-text"><span class="name clickable">${label}</span>${statusLine}</div>
           </div>
         `;
         const tRow = document.createElement('div');
         tRow.className = 'timeline-row clickable';
         tRow.style.width = totalWidthPx() + 'px';
         tRow.onclick = () => openParticipantDetail(p.id);
-           const isOwnRow = p.email.toLowerCase() === currentUserEmail;
-        if (p.scheduleItems === null) {
-          tRow.innerHTML = `<div class="no-data">${t('no_schedule_fetched_yet')}</div>`;
-        } else if (isOwnRow) {
-          const w = totalWidthPx();
-          tRow.innerHTML = `<div class="timeline-cell" style="width:${w}px;">${dayBackgroundsHtml()}${hourGridLinesHtml()}${restrictedBlocksHtml(p.ownRestrictedRanges)}${busyBlocksHtml(p.scheduleItems)}${nowLineHtml()}</div>`;
+        const isOwnRow = p.email.toLowerCase() === currentUserEmail;
+        const w = totalWidthPx();
+        if (p.status !== 'authorized') {
+          tRow.innerHTML = dayBandsHtml('', t('availability_hidden'));
+        } else if (p.scheduleItems === null) {
+          tRow.innerHTML = dayBandsHtml('plain', t('no_schedule_fetched_yet'));
         } else {
-          tRow.innerHTML = timelineCellHtml(p.scheduleItems);
+          const restricted = isOwnRow ? restrictedBlocksHtml(p.ownRestrictedRanges) : '';
+          tRow.innerHTML = `<div class="timeline-cell" style="width:${w}px;">${dayBackgroundsHtml()}${hourGridLinesHtml()}${restricted}${busyBlocksHtml(p.scheduleItems, undefined, label)}</div>`;
         }
         timelineCol.appendChild(tRow);
       });
@@ -885,7 +1198,7 @@ async function loadStatus() {
     namesCol.innerHTML += ownHeader.nameSide;
     timelineCol.innerHTML += ownHeader.timelineSide;
 
-    if (!sectionCollapsed.owngroups) {
+    if (!isSectionCollapsed('owngroups')) {
       if (ownGroups.length === 0) {
         namesCol.innerHTML += `<div class="name-row"><span class="empty-note">${t('empty_no_own_groups')}</span></div>`;
         timelineCol.innerHTML += `<div class="timeline-row"></div>`;
@@ -899,7 +1212,7 @@ async function loadStatus() {
     namesCol.innerHTML += projHeader.nameSide;
     timelineCol.innerHTML += projHeader.timelineSide;
 
-    if (!sectionCollapsed.projectgroups) {
+    if (!isSectionCollapsed('projectgroups')) {
       if (projectGroups.length === 0) {
         namesCol.innerHTML += `<div class="name-row"><span class="empty-note">${t('empty_no_project_groups')}</span></div>`;
         timelineCol.innerHTML += `<div class="timeline-row"></div>`;
@@ -907,6 +1220,8 @@ async function loadStatus() {
         projectGroups.forEach((g) => renderGroupRow(g, namesCol, timelineCol));
       }
     }
+
+    renderNowOverlay();
   }
 
   function groupMergedItems(g) {
@@ -1033,6 +1348,16 @@ async function loadStatus() {
   }
 
   async function refreshSchedules() {
+    const btn = document.getElementById('refreshBtn');
+    btn.classList.add('spinning');
+    try {
+      await refreshSchedulesInner();
+    } finally {
+      btn.classList.remove('spinning');
+    }
+  }
+
+  async function refreshSchedulesInner() {
     const statusRes = await fetch(`${SUPABASE_URL}/functions/v1/get-project-status`, {
       method: 'POST',
       headers: authHeaders(),
@@ -1061,7 +1386,7 @@ async function loadStatus() {
       body: JSON.stringify({ participantIds: authorizedIds, startTime, endTime }),
     });
 
-    loadStatus();
+    await loadStatus();
   }
 function openGroupModal() {
     if (!latestStatus) return;
@@ -1355,17 +1680,17 @@ function openGroupModal() {
 
     let ruleHtml = '';
     if (r.freq === 'daily') {
-      ruleHtml = `<p class="rec-hint" style="margin-top:0;">${t('rec_daily_hint')}</p>`;
+      ruleHtml = `<p class="rec-hint" style="margin-top:10px;">${t('rec_daily_hint')}</p>`;
     } else if (r.freq === 'weekly') {
       ruleHtml = `
-        <label class="modal-label-top">${t('rec_weekday_label')}</label>
+        <label>${t('rec_weekday_label')}</label>
         <div class="rec-inline">${weekdaySelect}</div>`;
     } else {
       ruleHtml = `
         ${r.freq === 'yearly' ? `
-          <label class="modal-label-top">${t('rec_month_label')}</label>
+          <label>${t('rec_month_label')}</label>
           <div class="rec-inline">${monthSelect}</div>` : ''}
-        <label class="${r.freq === 'yearly' ? '' : 'modal-label-top'}">${t('rec_nth_label')}</label>
+        <label>${t('rec_nth_label')}</label>
         <div class="rec-inline">${nthSelect}${weekdaySelect}</div>`;
     }
 
@@ -1377,6 +1702,11 @@ function openGroupModal() {
       <div class="rec-layout">
         <div class="rec-freq-list">${freqList}</div>
         <div class="rec-panel">
+          <label class="modal-label-top">${t('duration_minutes_label')}</label>
+          <div class="rec-inline">
+            <input type="number" class="rec-duration" min="5" step="5" value="${eventModalState.duration}" oninput="setEventDuration(this.value)" />
+          </div>
+
           ${ruleHtml}
 
           <label>${t('rec_time_of_day_label')}</label>
@@ -1463,9 +1793,6 @@ function openGroupModal() {
         <div class="modal event-modal">
           <h3>${t('modal_new_event')}</h3>
 
-          <label style="margin-top:0;">${t('duration_minutes_label')}</label>
-          <input type="number" min="5" step="5" value="${s.duration}" oninput="setEventDuration(this.value)" />
-
           <div class="event-two-col" style="margin-top:14px;">
             <div>
               <label style="margin-top:0;">${t('people_label')}</label>
@@ -1483,6 +1810,9 @@ function openGroupModal() {
           </div>
 
           ${s.mode === 'recurring' ? recurrencePanelHtml() : `
+          <label>${t('duration_minutes_label')}</label>
+          <input type="number" min="5" step="5" value="${s.duration}" oninput="setEventDuration(this.value)" />
+
           <label>${t('schedule_between_label')}</label>
           <div class="event-range-row">
             <input type="datetime-local" value="${s.rangeFrom}" oninput="eventModalState.rangeFrom = this.value" />
@@ -2801,6 +3131,47 @@ async function openSettingsModal() {
   }
 
   attachMasterPaging();
+
+  // Otsikko seuraa vieritystä: näytetään päivä, joka on näkymän keskellä.
+  document.getElementById('mainTimelineCol').addEventListener('scroll', () => {
+    if (anchorDateStr) updateDateTitle(visibleDateStr());
+  });
+
+  // Ikkunan koon muuttuessa päivän leveys sovitetaan uudelleen.
+  let resizeTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      const keepDate = anchorDateStr ? visibleDateStr() : null;
+      computeHoursWindow();
+      if (keepDate) anchorDateStr = keepDate;
+      renderAll();
+      setHomeScroll();
+    }, 150);
+  });
+
+  // Työkaluvihje elementeille, joilla on data-tip.
+  (function attachTooltips() {
+    const box = document.getElementById('tipBox');
+    document.addEventListener('mouseover', (e) => {
+      const el = e.target.closest('[data-tip]');
+      if (!el) { box.style.display = 'none'; return; }
+      box.textContent = el.getAttribute('data-tip');
+      box.style.display = 'block';
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (box.style.display !== 'block') return;
+      const el = e.target.closest('[data-tip]');
+      if (!el) { box.style.display = 'none'; return; }
+      const rect = el.getBoundingClientRect();
+      box.style.left = e.clientX + 'px';
+      box.style.top = (rect.top - 6) + 'px';
+    });
+  })();
+
+  setInterval(renderNowOverlay, 60000);
+  computeHoursWindow();
+  updateDayRangeSegment();
 
   (async () => {
     const ok = await ensureLoggedIn();
