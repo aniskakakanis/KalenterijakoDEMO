@@ -91,8 +91,10 @@
 
   .dual-pane { display: flex; padding-right: 24px; }
   .names-col { width: 264px; flex: 0 0 264px; }
-  .timeline-col { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
-  .timeline-col::-webkit-scrollbar { display: none; }
+  .timeline-col { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; }
+  #mainTimelineCol { scrollbar-width: thin; scrollbar-color: #C9CFD7 transparent; }
+  #mainTimelineCol::-webkit-scrollbar { height: 8px; }
+  #mainTimelineCol::-webkit-scrollbar-thumb { background: #C9CFD7; border-radius: 4px; }
   .timeline-inner { position: relative; }
 
   .ruler-cell { height: 40px; position: relative; border-bottom: 1px solid var(--line); box-sizing: border-box; }
@@ -100,6 +102,16 @@
   .day-label { position: absolute; top: 0; height: 16px; font-size: 10px; color: var(--text-faint); border-left: 1px solid var(--line); padding-left: 4px; box-sizing: border-box; }
   .hour-label { position: absolute; top: 17px; font-family: var(--mono); font-size: 12px; color: var(--text-muted); padding-left: 2px; }
   .event-mini-board .hour-label { font-size: 10px; }
+
+  /* Pääaikajanan otsikkorivi: navigointi vasemmalla, päivämäärä ja tunnit oikealla */
+  .ruler-head { height: 56px; display: flex; align-items: center; gap: 8px; padding-left: 24px; border-bottom: 1px solid var(--line); box-sizing: border-box; }
+  .ruler-head .icon-btn { width: 32px; height: 32px; }
+  .ruler-head .icon-btn svg { width: 14px; height: 14px; }
+  .ruler-head .small-btn { padding: 6px 12px; }
+  #mainRuler { height: 56px; }
+  #mainRuler .hour-label { top: 32px; }
+  .sticky-day-label { position: absolute; top: 8px; font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; padding-left: 2px; background: var(--surface); z-index: 2; }
+  .ruler-day-divider { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
 
   .hour-grid-line { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-soft); z-index: 1; }
 
@@ -110,7 +122,7 @@
   .section-header-row .count { color: var(--text-faint); font-size: 13px; }
   .section-spacer-row { height: 44px; border-top: 1px solid var(--line-soft); }
   .names-col .section-header-row { border-top: 1px solid var(--line-soft); }
-  .names-col .ruler-spacer + .whole-row + .section-header-row { border-top: none; }
+  .names-col .ruler-head + .whole-row + .section-header-row { border-top: none; }
   .timeline-row.whole-row + .section-spacer-row { border-top: none; }
 
   .name-row, .timeline-row { height: 53px; display: flex; align-items: center; box-sizing: border-box; }
@@ -191,6 +203,9 @@
     .names-col { width: 132px; flex-basis: 132px; }
     .name-row { gap: 8px; }
     .who-text .name { font-size: 13px; }
+    .ruler-head { padding-left: 8px; gap: 4px; }
+    .ruler-head .icon-btn { width: 28px; height: 28px; }
+    .ruler-head .small-btn { padding: 4px 8px; font-size: 12px; }
   }
 
   .tip-box { position: fixed; z-index: 50; background: var(--nav-bg); color: #fff; font-size: 12.5px; font-weight: 500; padding: 6px 10px; border-radius: 6px; pointer-events: none; white-space: nowrap; transform: translate(-50%, -100%); display: none; }
@@ -393,15 +408,8 @@
   <div class="board">
     <div class="board-toolbar">
       <div class="bt-left">
-        <button type="button" class="icon-btn" onclick="stepViewDay(-1)" data-i18n-title="prev_day">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg>
-        </button>
-        <button type="button" class="icon-btn" onclick="stepViewDay(1)" data-i18n-title="next_day">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
-        </button>
         <button type="button" class="date-title" id="dateTitle" onclick="openDatePicker()"></button>
         <input type="date" id="viewDate" class="date-picker-input" tabindex="-1" onchange="onViewDateChange()" />
-        <button type="button" class="secondary small-btn" onclick="jumpToToday()" data-i18n="today"></button>
       </div>
       <div class="bt-right">
         <span class="fetched" id="fetchedSummary"></span>
@@ -416,9 +424,7 @@
     </div>
 
     <div class="dual-pane">
-      <div class="names-col" id="namesCol">
-        <div class="ruler-spacer"></div>
-      </div>
+      <div class="names-col" id="namesCol"></div>
       <div class="timeline-col" id="mainTimelineCol">
         <div class="timeline-inner" id="mainTimelineInner">
           <div class="ruler-cell" id="mainRuler"></div>
@@ -908,6 +914,56 @@ function bufferDates(anchor) {
 
   function setHomeScroll() {
     document.getElementById('mainTimelineCol').scrollLeft = DAY_VISIBLE_PX;
+    positionDayLabels();
+  }
+
+  // Nimisarakkeen yläkulma: Tänään ja päivä kerrallaan eteen/taakse.
+  function rulerHeadHtml() {
+    return `
+      <div class="ruler-head">
+        <button type="button" class="secondary small-btn" onclick="jumpToToday()">${t('today')}</button>
+        <button type="button" class="icon-btn" onclick="stepViewDay(-1)" title="${t('prev_day')}">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg>
+        </button>
+        <button type="button" class="icon-btn" onclick="stepViewDay(1)" title="${t('next_day')}">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+        </button>
+      </div>
+    `;
+  }
+
+  // Pääaikajanan viivain: päivän raja, päivämäärä ja tunnit. Päivämäärän
+  // vaakasijainti asetetaan positionDayLabels()-funktiossa.
+  function mainRulerHtml() {
+    const wdFull = weekdayFullArr();
+    let html = '';
+    bufferDates().forEach((dateStr, i) => {
+      const d = new Date(dateStr + 'T00:00:00');
+      const wd = wdFull[(d.getDay() + 6) % 7];
+      const label = wd.charAt(0).toUpperCase() + wd.slice(1) + ' ' + d.getDate() + '.' + (d.getMonth() + 1) + '.';
+      if (i > 0) html += `<div class="ruler-day-divider" style="left:${i * DAY_VISIBLE_PX}px;"></div>`;
+      html += `<div class="sticky-day-label" data-day="${i}" style="left:${i * DAY_VISIBLE_PX}px;">${label}</div>`;
+      const lastHour = i === BUFFER_DAYS - 1 ? HOURS_END : HOURS_END - 1;
+      for (let h = HOURS_START; h <= lastHour; h++) {
+        const x = i * DAY_VISIBLE_PX + (h - HOURS_START) * HOUR_PX;
+        html += `<div class="hour-label" style="left:${x}px;">${String(h).padStart(2, '0')}</div>`;
+      }
+    });
+    return html;
+  }
+
+  // Päivämäärä pysyy aikajanan vasemmassa reunassa vieritettäessä, kunnes
+  // seuraavan päivän päivämäärä työntää sen pois näkyvistä.
+  function positionDayLabels() {
+    const col = document.getElementById('mainTimelineCol');
+    if (!col) return;
+    const scrollLeft = col.scrollLeft;
+    document.querySelectorAll('#mainRuler .sticky-day-label').forEach((el) => {
+      const i = Number(el.dataset.day);
+      const dayStart = i * DAY_VISIBLE_PX;
+      const pushLimit = (i + 1) * DAY_VISIBLE_PX - el.offsetWidth - 8;
+      el.style.left = Math.max(dayStart, Math.min(scrollLeft, pushLimit)) + 'px';
+    });
   }
 
   function pageBuffer(direction) {
@@ -1133,7 +1189,7 @@ async function loadStatus() {
 
     document.getElementById('mainTimelineInner').style.width = totalWidthPx() + 'px';
     document.getElementById('mainRuler').style.width = totalWidthPx() + 'px';
-    document.getElementById('mainRuler').innerHTML = rulerHtml(undefined, false);
+    document.getElementById('mainRuler').innerHTML = mainRulerHtml();
     updateDateTitle(anchorDateStr);
     updateDayRangeSegment();
 
@@ -1149,7 +1205,7 @@ async function loadStatus() {
 
     const namesCol = document.getElementById('namesCol');
     const timelineCol = document.getElementById('timelineCol');
-    namesCol.innerHTML = '<div class="ruler-spacer"></div>';
+    namesCol.innerHTML = rulerHeadHtml();
     timelineCol.innerHTML = '';
 
     namesCol.innerHTML += `
@@ -1222,6 +1278,7 @@ async function loadStatus() {
     }
 
     renderNowOverlay();
+    positionDayLabels();
   }
 
   function groupMergedItems(g) {
@@ -3134,6 +3191,7 @@ async function openSettingsModal() {
 
   // Otsikko seuraa vieritystä: näytetään päivä, joka on näkymän keskellä.
   document.getElementById('mainTimelineCol').addEventListener('scroll', () => {
+    positionDayLabels();
     if (anchorDateStr) updateDateTitle(visibleDateStr());
   });
 
@@ -3170,6 +3228,19 @@ async function openSettingsModal() {
   })();
 
   setInterval(renderNowOverlay, 60000);
+
+  // Kalenterit päivittyvät palvelimella automaattisesti muutosilmoitusten
+  // perusteella (calendar-webhook + calendar-sync). Sivu lukee tuoreen tilan
+  // tietokannasta — ei Graph-kutsuja — 2 min välein ja välilehdelle palatessa.
+  const STATUS_POLL_MS = 2 * 60 * 1000;
+  let statusPollInFlight = false;
+  async function pollStatus() {
+    if (statusPollInFlight || document.hidden || !latestStatus) return;
+    statusPollInFlight = true;
+    try { await loadStatus(); } finally { statusPollInFlight = false; }
+  }
+  setInterval(pollStatus, STATUS_POLL_MS);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) pollStatus(); });
   computeHoursWindow();
   updateDayRangeSegment();
 
